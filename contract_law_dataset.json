@@ -1,0 +1,66 @@
+[
+  {
+    "topic": "contract_law",
+    "subtopic": "definition",
+    "type": "definition",
+    "content": "Contract law governs legally binding agreements between two or more parties. It ensures that promises made are enforceable by law, provided that the contract is valid."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "elements_of_contract",
+    "type": "definition",
+    "content": "There are several essential elements for a valid contract: offer, acceptance, consideration, intention to create legal relations, capacity, and legality of object."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "offer",
+    "type": "definition",
+    "content": "An offer is a definite promise to be bound provided certain terms are accepted. It must be clear, certain, and communicated to the offeree."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "offer",
+    "type": "case",
+    "title": "Carlill v Carbolic Smoke Ball Co. (1893) 1 QB 256",
+    "content": "Facts: The company promised \u00a3100 to anyone who used their product and still contracted influenza. Mrs. Carlill did and sued for the money.\nJudgment: The court held it was a valid unilateral offer accepted by performance."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "acceptance",
+    "type": "definition",
+    "content": "Acceptance is the final and unqualified expression of assent to the terms of an offer. It must be communicated and mirror the terms of the offer."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "acceptance",
+    "type": "case",
+    "title": "Entores Ltd v Miles Far East Corporation (1955) 2 QB 327",
+    "content": "Facts: Communication of acceptance via telex between companies in London and Amsterdam.\nJudgment: Acceptance must be effectively communicated to create a contract."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "consideration",
+    "type": "definition",
+    "content": "Consideration is something of value given by both parties to a contract that induces them to enter into the agreement."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "consideration",
+    "type": "case",
+    "title": "Currie v Misa (1875) LR 10 Ex 153",
+    "content": "Consideration is a right, interest, profit, benefit, or forbearance, detriment, loss, or responsibility given or suffered."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "intention_to_create_legal_relations",
+    "type": "definition",
+    "content": "The parties must intend that the agreement creates obligations enforceable by law. Social/domestic agreements usually lack such intention."
+  },
+  {
+    "topic": "contract_law",
+    "subtopic": "intention_to_create_legal_relations",
+    "type": "case",
+    "title": "Balfour v Balfour (1919) 2 KB 571",
+    "content": "Facts: A husband promised to send money to his wife while abroad.\nJudgment: No legal intention in domestic arrangements; no enforceable contract."
+  }
+]
