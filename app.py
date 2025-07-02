@@ -1,15 +1,17 @@
 import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI
-import json
+from langchain_community.chat_models import ChatOpenAI  # ✅ updated import
+from langchain_core.documents import Document
 import os
+import json
+
+# 🔐 Load OpenAI API Key from Streamlit secrets
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 
 # Paths
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 DATASET_PATH = "./contract_law_dataset.json"
 
 # Load dataset from JSON
@@ -23,26 +25,24 @@ def load_documents():
         documents.append(Document(page_content=content))
     return documents
 
-# Load vectorstore
+# Load embeddings and create FAISS index
 @st.cache_resource
 def load_vectorstore(_docs):
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(_docs)
-    embeddings = HuggingFaceEmbeddings(model_name=MODEL_NAME)
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return FAISS.from_documents(chunks, embeddings)
 
-# Load cloud-based LLM (OpenRouter using ChatOpenAI wrapper)
+# Load OpenAI Chat Model (Cloud-based)
 @st.cache_resource
 def load_llm():
     return ChatOpenAI(
-        model_name="mistralai/mixtral-8x7b-instruct",
-        openai_api_key="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",  # Replace with your actual OpenRouter key
-        openai_api_base="https://openrouter.ai/api/v1",
         temperature=0.7,
-        max_tokens=512,
+        model_name="gpt-3.5-turbo",  # Or "gpt-4" if you're using GPT-4
+        openai_api_key=os.environ["OPENAI_API_KEY"]
     )
 
-# UI
+# Streamlit UI
 st.set_page_config(page_title="⚖️ Nigerian Law Analyzer", page_icon="⚖️")
 st.title("⚖️ Nigerian Law Analyzer")
 st.markdown("Ask me anything about **Contract Law** in Nigeria:")
