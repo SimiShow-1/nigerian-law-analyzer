@@ -1,22 +1,17 @@
 import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
+from langchain_community.chat_models import ChatOpenAI
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.chains.question_answering import load_qa_chain
-from langchain_community.chat_models import ChatOpenAI
+from langchain_core.documents import Document
 import json
 import os
 
-# Paths
-DATASET_PATH = "./contract_law_dataset.json"
-
-# Load dataset from JSON
+# Load your contract law dataset
 @st.cache_data
 def load_documents():
-    with open(DATASET_PATH, "r", encoding="utf-8") as f:
+    with open("contract_law_dataset.json", "r", encoding="utf-8") as f:
         raw_data = json.load(f)
     documents = []
     for item in raw_data:
@@ -24,74 +19,71 @@ def load_documents():
         documents.append(Document(page_content=content))
     return documents
 
-# Load vector database
+# Vectorstore creation
 @st.cache_resource
 def load_vectorstore(_docs):
-    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=150)
     chunks = splitter.split_documents(_docs)
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return FAISS.from_documents(chunks, embeddings)
 
-# Load Lexa LLM using OpenRouter
+# LLM setup (OpenRouter)
 @st.cache_resource
-def load_lexa_llm():
+def load_llm():
     return ChatOpenAI(
-        base_url="https://openrouter.ai/api/v1",
+        model_name="mistralai/mixtral-8x7b",  # You can switch to any OpenRouter-supported model
         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-        model="openrouter/mistralai/mixtral-8x7b-instruct",
-        temperature=0.5,
+        base_url="https://openrouter.ai/api/v1",
+        temperature=0.7
     )
 
-# Custom prompt
-custom_prompt = PromptTemplate.from_template("""
-You are Lexa, a legal assistant trained in Nigerian law. When given a question or scenario,
-you must analyze it using Nigerian legal reasoning, statutes, case law, and remedies.
+# Prompt template (for improved legal reasoning)
+LEGAL_PROMPT_TEMPLATE = """
+You are Lexa, an expert Nigerian legal analyst. Break down the user's scenario clearly using Nigerian laws.
+Use specific sections of the law, relevant legal principles, and cite Nigerian cases and statutes when appropriate.
 
-Be clear, helpful, and structured like a real lawyer speaking to a layperson.
+Always follow this format:
 
-Question: {question}
-=========
-Context: {context}
-=========
-Answer:
-""")
+1. **Legal Issue**
+2. **Applicable Law**
+3. **Application to Facts**
+4. **Conclusion / Advice**
 
-# Streamlit UI
+User's question: {query}
+"""
+
+# Streamlit App UI
 st.set_page_config(page_title="Lexa - Nigerian Law Analyzer", page_icon="⚖️")
-st.title("⚖️ Lexa - Nigerian Law Analyzer")
-st.markdown("_Ask Lexa any legal question or describe a Nigerian legal issue/scenario._")
+st.markdown("<h1 style='text-align: center;'>⚖️ Lexa: Nigerian Law Analyzer</h1>", unsafe_allow_html=True)
+st.markdown("---")
 
-# Chat history
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Load tools
+docs = load_documents()
+db = load_vectorstore(docs)
+llm = load_llm()
+qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=db.as_retriever())
 
-# Input field at bottom
-with st.container():
-    user_input = st.chat_input("🧑‍⚖️ Type your legal question or scenario...")
+# Session history for messages
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-    if user_input:
-        st.session_state.messages.append({"role": "user", "content": user_input})
+# Input at bottom
+user_input = st.chat_input("Ask Lexa a Nigerian legal question...")
 
-        with st.spinner("Lexa is thinking..."):
-            docs = load_documents()
-            db = load_vectorstore(docs)
-            llm = load_lexa_llm()
-            retriever = db.as_retriever()
+# Display messages
+for message in st.session_state.chat_history:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
 
-            qa_chain = RetrievalQA.from_chain_type(
-                llm=llm,
-                retriever=retriever,
-                chain_type="stuff",
-                chain_type_kwargs={"prompt": custom_prompt}
-            )
+# Handle input
+if user_input:
+    st.session_state.chat_history.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-            result = qa_chain.run(user_input)
-
-        st.session_state.messages.append({"role": "lexa", "content": result})
-
-# Chat layout
-for msg in st.session_state.messages:
-    if msg["role"] == "user":
-        st.chat_message("🧑‍⚖️ You").markdown(msg["content"])
-    else:
-        st.chat_message("🧠 Lexa").markdown(msg["content"])
+    with st.chat_message("assistant"):
+        with st.spinner("Lexa is analyzing the legal question..."):
+            full_prompt = LEGAL_PROMPT_TEMPLATE.format(query=user_input)
+            result = qa_chain.run(full_prompt)
+            st.markdown(result)
+            st.session_state.chat_history.append({"role": "assistant", "content": result})
