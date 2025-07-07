@@ -18,7 +18,7 @@ st.set_page_config(page_title="Lexa - Nigerian Law Analyzer", page_icon="🧠", 
 st.image(LOGO_PATH, width=100)
 st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 
-# === Custom CSS for Chat ===
+# === Custom CSS ===
 st.markdown("""
 <style>
 .user-bubble {
@@ -44,10 +44,21 @@ st.markdown("""
   font-size: 16px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.send-button-container {
-  display: flex;
-  justify-content: flex-end;
-  margin-top: -10px;
+button[kind="secondaryFormSubmit"] {
+    background-color: #25D366;
+    border: none;
+    color: white;
+    font-size: 20px;
+    padding: 0.4rem 0.8rem;
+    border-radius: 5px;
+    transition: background-color 0.3s ease;
+}
+button[kind="secondaryFormSubmit"]:hover {
+    background-color: #1DA851;
+}
+button[kind="secondaryFormSubmit"]::before {
+    content: "📤";
+    font-size: 1.2rem;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -74,12 +85,12 @@ def load_vectorstore(_docs):
     embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return FAISS.from_documents(chunks, embed)
 
-# === Load OpenRouter via ChatOpenAI ===
+# === Load OpenRouter LLM ===
 @st.cache_resource
 def load_llm():
-    return ChatOpenAI(openai_api_key=st.secrets["OPENREUTER_API_KEY"], temperature=0.7)
+    return ChatOpenAI(openai_api_key=st.secrets["OPENROUTER_API_KEY"], temperature=0.7)
 
-# === Chat History Setup ===
+# === Chat History ===
 if "history" not in st.session_state:
     st.session_state.history = []
 
@@ -88,17 +99,20 @@ for role, msg in st.session_state.history:
     bubble = "user-bubble" if role == "user" else "lexa-bubble"
     st.markdown(f'<div class="{bubble}">{msg}</div>', unsafe_allow_html=True)
 
-# === Chat Input + Send Button ===
+# === Chat Input & Send Button ===
 with st.form(key="chat_form", clear_on_submit=True):
-    user_input = st.text_input("Type your question...", key="input", label_visibility="collapsed")
-    submitted = st.form_submit_button("📤 Send")
+    col1, col2 = st.columns([0.85, 0.15])
+    with col1:
+        user_input = st.text_input("Type your question...", key="input", label_visibility="collapsed")
+    with col2:
+        submitted = st.form_submit_button(" ", use_container_width=True)
 
 if submitted and user_input:
     st.session_state.history.append(("user", user_input))
-    if user_input.strip().lower() in GREETINGS:
-        reply = "Hi, I'm Lexa. You can ask me anything about Nigerian Law—Contract, Land, or more."
-    else:
-        try:
+    try:
+        if user_input.strip().lower() in GREETINGS:
+            reply = "Hi, I'm Lexa. You can ask me anything about Nigerian Law—Contract, Land, or more."
+        else:
             docs = load_documents()
             db = load_vectorstore(docs)
             qa = RetrievalQA.from_chain_type(
@@ -108,8 +122,8 @@ if submitted and user_input:
             )
             full_prompt = f"You're Lexa, a Nigerian legal analyst. Explain the user's query in a way that helps them understand the legal implications and remedies available. Question: {user_input}"
             reply = qa.run(full_prompt)
-        except Exception as e:
-            reply = f"⚠️ Lexa encountered an error:\n`{str(e)}`"
+    except Exception as e:
+        reply = f"⚠️ Lexa encountered an error:\n`{str(e)}`"
+    
     st.session_state.history.append(("lexa", reply))
     st.rerun()
-
