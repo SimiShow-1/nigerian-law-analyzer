@@ -4,3 +4,4 @@ langchain-community
 faiss-cpu
 sentence-transformers
 openai
+streamlit>=1.25.0
