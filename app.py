@@ -6,47 +6,53 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
 import json
+import os
 
-# Constants
-DATASET_PATH = "./contract_law_dataset.json"
-LOGO_PATH = "lexa_logo.png"  # Make sure this file is in the same folder
+# --- Constants ---
+CONTRACT_PATH = "./contract_law_dataset.json"
+LAND_PATH = "./land_law_dataset.json"
+LOGO_PATH = "lexa_logo.png"
 GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
 
-# Load legal documents
+# --- Function to decide topic ---
+def detect_topic(user_input):
+    keywords_contract = ["contract", "agreement", "breach", "consideration", "offer", "acceptance"]
+    keywords_land = ["land", "occupancy", "usufruct", "c of o", "right of occupancy", "land use"]
+
+    user_input_lower = user_input.lower()
+    if any(word in user_input_lower for word in keywords_land):
+        return "land"
+    return "contract"
+
+# --- Load Docs ---
 @st.cache_data
-def load_documents():
-    with open(DATASET_PATH, encoding="utf-8") as f:
+def load_documents(dataset_path):
+    with open(dataset_path, encoding="utf-8") as f:
         data = json.load(f)
     return [Document(page_content=f"{i['title']}\n\n{i['content']}") for i in data]
 
-# FAISS vector store
+# --- Vector Store ---
 @st.cache_resource
-def load_vectorstore(_docs):  # FIXED: underscore to avoid hash error
+def load_vectorstore(_docs):
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
     chunks = splitter.split_documents(_docs)
     embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return FAISS.from_documents(chunks, embed)
 
-# Load the OpenRouter model
+# --- Load LLM ---
 @st.cache_resource
 def load_llm():
     return ChatOpenAI(openai_api_key=st.secrets["OPENREUTER_API_KEY"], temperature=0.7)
 
-# --- UI Setup ---
+# --- UI ---
 st.set_page_config(page_title="Lexa - Nigerian Law Analyzer", page_icon="🧠", layout="wide")
-
-# Display logo
-try:
+if os.path.exists(LOGO_PATH):
     st.image(LOGO_PATH, width=100)
-except:
-    st.warning("⚠️ Logo not found. Please add 'lexa_logo.png' to your project folder.")
-
 st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 
-# Styling
-st.markdown(
-    """
-    <style>
+# --- Styling ---
+st.markdown("""
+<style>
     .user-bubble {
         background-color: #cceeff;
         color: #000000;
@@ -70,40 +76,45 @@ st.markdown(
         font-size: 16px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+</style>
+""", unsafe_allow_html=True)
 
-# Chat History
+# --- Chat History ---
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# Display chat
+# --- Display chat history ---
 for role, msg in st.session_state.history:
-    bubble_class = "user-bubble" if role == "user" else "lexa-bubble"
-    st.markdown(f'<div class="chat-container"><div class="{bubble_class}">{msg}</div></div>', unsafe_allow_html=True)
+    bubble = "user-bubble" if role == "user" else "lexa-bubble"
+    st.markdown(f'<div class="{bubble}">{msg}</div>', unsafe_allow_html=True)
 
-# Chat Input
-user_input = st.text_input("Type your message below...", key="user_input")
+# --- Input field ---
+user_input = st.text_input("Type your question...")
 
 if user_input:
     st.session_state.history.append(("user", user_input))
+    lower = user_input.strip().lower()
 
-    # Simple casual check
-    if user_input.strip().lower() in GREETINGS:
-        reply = "Hey! I'm Lexa. Ask me anything about Nigerian law, and I’ll break it down."
+    if lower in GREETINGS:
+        reply = "Hi, I'm Lexa. You can ask me anything about Nigerian Law—Contract, Land, or more."
     else:
-        docs = load_documents()
-        db = load_vectorstore(docs)
-        qa = RetrievalQA.from_chain_type(
-            llm=load_llm(),
-            retriever=db.as_retriever(),
-            return_source_documents=False
-        )
-        full_prompt = f"You're Lexa, a Nigerian legal analyst. Answer concisely and legally:\n\n{user_input}"
-        reply = qa.run(full_prompt)
+        try:
+            topic = detect_topic(user_input)
+            dataset = CONTRACT_PATH if topic == "contract" else LAND_PATH
+            docs = load_documents(dataset)
+            db = load_vectorstore(docs)
+            llm = load_llm()
+
+            qa = RetrievalQA.from_chain_type(
+                llm=llm,
+                retriever=db.as_retriever(),
+                return_source_documents=False
+            )
+
+            full_prompt = f"You are Lexa, a professional Nigerian law assistant. Answer this query clearly and legally:\n\n{user_input}"
+            reply = qa.run(full_prompt)
+
+        except Exception as e:
+            reply = f"⚠️ Lexa encountered an error:\n\n`{str(e)}`"
 
     st.session_state.history.append(("lexa", reply))
-    st.rerun()
-
