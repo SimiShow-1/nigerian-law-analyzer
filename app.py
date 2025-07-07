@@ -3,116 +3,106 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
 from langchain.text_splitter import CharacterTextSplitter
-from langchain_community.chat_models import ChatOpenAI
 from langchain.chains import RetrievalQA
+from langchain_community.chat_models import ChatOpenAI
 import json
-import os
 
-# Load each dataset file into memory
+# Constants
+DATASET_PATH = "./contract_law_dataset.json"
+LOGO_PATH = "lexa_logo.png"  # Make sure this file is in the same folder
+GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
+
+# Load legal documents
 @st.cache_data
-def load_dataset(path):
-    with open(path, "r", encoding="utf-8") as f:
+def load_documents():
+    with open(DATASET_PATH, encoding="utf-8") as f:
         data = json.load(f)
-    documents = []
-    for item in data:
-        content = f"{item.get('topic', '')}\n\n{item.get('definition', '')}\n\n{item.get('legal_analysis', '')}"
-        if "key_cases" in item:
-            for case in item["key_cases"]:
-                content += f"\n\nCase: {case['case_name']}\nFacts: {case['facts']}\nDecision: {case['decision']}"
-        if "statute_reference" in item:
-            content += f"\n\nStatute: {item['statute_reference']}"
-        documents.append(Document(page_content=content))
-    return documents
+    return [Document(page_content=f"{i['title']}\n\n{i['content']}") for i in data]
 
-# Load vector store
+# FAISS vector store
 @st.cache_resource
-def load_vectorstore(docs):
+def load_vectorstore(_docs):  # FIXED: underscore to avoid hash error
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = splitter.split_documents(docs)
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    return FAISS.from_documents(chunks, embeddings)
+    chunks = splitter.split_documents(_docs)
+    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return FAISS.from_documents(chunks, embed)
 
-# Load OpenRouter-based OpenAI model
+# Load the OpenRouter model
 @st.cache_resource
-def load_lexa_model():
-    return ChatOpenAI(
-        model_name="gpt-3.5-turbo",
-        api_key=st.secrets["OPENROUTER_API_KEY"],
-        base_url="https://openrouter.ai/api/v1"
-    )
+def load_llm():
+    return ChatOpenAI(openai_api_key=st.secrets["OPENREUTER_API_KEY"], temperature=0.7)
 
-# Smart dataset selector
-def select_dataset(question):
-    q = question.lower()
-    if any(word in q for word in ["land", "occupancy", "lease", "certificate"]):
-        return "land_law_dataset.json"
-    elif any(word in q for word in ["crime", "offence", "punishment", "criminal"]):
-        return "criminal_law_dataset.json"
-    else:
-        return "contract_law_dataset.json"
+# --- UI Setup ---
+st.set_page_config(page_title="Lexa - Nigerian Law Analyzer", page_icon="🧠", layout="wide")
 
-# Greeting responses
-def casual_response(msg):
-    greetings = ["hi", "hello", "what's up", "hey"]
-    if msg.lower().strip() in greetings:
-        return "👋 Hello! I'm **Lexa**, your Nigerian legal assistant. Ask me any law-related question!"
-    return None
+# Display logo
+try:
+    st.image(LOGO_PATH, width=100)
+except:
+    st.warning("⚠️ Logo not found. Please add 'lexa_logo.png' to your project folder.")
 
-# Page config
-st.set_page_config(page_title="⚖️ Lexa: Nigerian Law Analyzer", page_icon="⚖️")
-st.markdown("""
+st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
+
+# Styling
+st.markdown(
+    """
     <style>
-    .chat-container {
-        background-color: #f7f7f7;
-        padding: 10px;
+    .user-bubble {
+        background-color: #cceeff;
+        color: #000000;
+        padding: 12px;
         border-radius: 10px;
         margin-bottom: 10px;
+        max-width: 75%;
+        font-weight: 500;
+        font-size: 16px;
+        align-self: flex-end;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .chat-user {
-        background-color: #dcf8c6;
-        padding: 10px;
+    .lexa-bubble {
+        background-color: #ebebeb;
+        color: #222222;
+        padding: 12px;
         border-radius: 10px;
-        margin-bottom: 5px;
-        text-align: right;
-    }
-    .chat-lexa {
-        background-color: #ffffff;
-        padding: 10px;
-        border-radius: 10px;
-        margin-bottom: 5px;
-        border: 1px solid #ddd;
+        margin-bottom: 10px;
+        max-width: 75%;
+        font-weight: 500;
+        font-size: 16px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     </style>
-""", unsafe_allow_html=True)
+    """,
+    unsafe_allow_html=True
+)
 
-st.title("⚖️ Lexa: Nigerian Law Analyzer")
+# Chat History
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# Display chat
+for role, msg in st.session_state.history:
+    bubble_class = "user-bubble" if role == "user" else "lexa-bubble"
+    st.markdown(f'<div class="chat-container"><div class="{bubble_class}">{msg}</div></div>', unsafe_allow_html=True)
 
-user_input = st.chat_input("Ask Lexa about any Nigerian legal issue...")
+# Chat Input
+user_input = st.text_input("Type your message below...", key="user_input")
 
 if user_input:
-    # Greet if casual
-    casual = casual_response(user_input)
-    if casual:
-        st.session_state.chat_history.append(("user", user_input))
-        st.session_state.chat_history.append(("lexa", casual))
-    else:
-        dataset_path = select_dataset(user_input)
-        docs = load_dataset(dataset_path)
-        db = load_vectorstore(docs)
-        llm = load_lexa_model()
-        retriever = db.as_retriever()
-        qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
-        with st.spinner("Lexa is thinking..."):
-            result = qa_chain.run(user_input)
-        st.session_state.chat_history.append(("user", user_input))
-        st.session_state.chat_history.append(("lexa", result))
+    st.session_state.history.append(("user", user_input))
 
-# Chat history display
-for role, msg in st.session_state.chat_history:
-    if role == "user":
-        st.markdown(f'<div class="chat-user">{msg}</div>', unsafe_allow_html=True)
+    # Simple casual check
+    if user_input.strip().lower() in GREETINGS:
+        reply = "Hey! I'm Lexa. Ask me anything about Nigerian law, and I’ll break it down."
     else:
-        st.markdown(f'<div class="chat-lexa">{msg}</div>', unsafe_allow_html=True)
+        docs = load_documents()
+        db = load_vectorstore(docs)
+        qa = RetrievalQA.from_chain_type(
+            llm=load_llm(),
+            retriever=db.as_retriever(),
+            return_source_documents=False
+        )
+        full_prompt = f"You're Lexa, a Nigerian legal analyst. Answer concisely and legally:\n\n{user_input}"
+        reply = qa.run(full_prompt)
+
+    st.session_state.history.append(("lexa", reply))
+    st.experimental_rerun()
