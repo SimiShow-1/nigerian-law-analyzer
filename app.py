@@ -111,4 +111,5 @@ if submitted and user_input:
         except Exception as e:
             reply = f"⚠️ Lexa encountered an error:\n`{str(e)}`"
     st.session_state.history.append(("lexa", reply))
-    st.experimental_rerun()
+    st.rerun()
+
