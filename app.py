@@ -105,4 +105,5 @@ if user_input:
         reply = qa.run(full_prompt)
 
     st.session_state.history.append(("lexa", reply))
-    st.experimental_rerun()
+    st.rerun()
+
