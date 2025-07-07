@@ -86,9 +86,16 @@ def load_vectorstore(_docs):
     return FAISS.from_documents(chunks, embed)
 
 # === Load OpenRouter LLM ===
+
+
 @st.cache_resource
 def load_llm():
-    return ChatOpenAI(openai_api_key=st.secrets["OPENROUTER_API_KEY"], temperature=0.7)
+    return ChatOpenAI(
+        openai_api_base="https://openrouter.ai/api/v1",
+        openai_api_key=st.secrets["OPENROUTER_API_KEY"],
+        temperature=0.7,
+        model="mistralai/mixtral-8x7b-instruct"  # You can use another supported OpenRouter model
+    )
 
 # === Chat History ===
 if "history" not in st.session_state:
