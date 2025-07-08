@@ -1,4 +1,3 @@
-
 import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
@@ -6,16 +5,20 @@ from langchain_core.documents import Document
 from langchain.text_splitter import CharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
-import json, os
+import json
+import os
 
+# === CONFIG ===
 LOGO_PATH = "lexa_logo.png"
 DATASET_PATHS = ["contract_law_dataset.json", "land_law_dataset.json"]
 GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
 
+# === Streamlit Page Config ===
 st.set_page_config(page_title="Lexa - Nigerian Law Analyzer", page_icon="🧠", layout="wide")
 st.image(LOGO_PATH, width=100)
 st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 
+# === Custom CSS ===
 st.markdown("""
 <style>
 .user-bubble {
@@ -41,37 +44,27 @@ st.markdown("""
   font-size: 16px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
-.chat-input {
-  display: flex;
-  align-items: center;
-  background-color: #2c2f33;
-  padding: 8px 16px;
-  border-radius: 30px;
-  border: 1px solid #444;
-  margin-top: 20px;
+div.stChatInput {
+  position: relative;
 }
-.chat-input input {
+input[type="text"] {
+  padding-right: 3rem;
+}
+button.send-icon {
+  position: absolute;
+  top: 50%;
+  right: 8px;
+  transform: translateY(-50%);
   background: none;
   border: none;
-  outline: none;
-  color: #fff;
-  font-size: 16px;
-  flex: 1;
-}
-.chat-input button {
-  background-color: #25D366;
-  border: none;
-  border-radius: 50%;
-  padding: 10px 14px;
+  font-size: 20px;
+  color: #25D366;
   cursor: pointer;
-  margin-left: 10px;
-}
-.chat-input button:hover {
-  background-color: #1DA851;
 }
 </style>
 """, unsafe_allow_html=True)
 
+# === Load & Merge Datasets ===
 @st.cache_data
 def load_documents():
     all_docs = []
@@ -85,6 +78,7 @@ def load_documents():
                     all_docs.append(Document(page_content=f"{title}\n\n{content}"))
     return all_docs
 
+# === Embeddings & Vectorstore ===
 @st.cache_resource
 def load_vectorstore(_docs):
     splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
@@ -92,6 +86,7 @@ def load_vectorstore(_docs):
     embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     return FAISS.from_documents(chunks, embed)
 
+# === Load OpenRouter LLM ===
 @st.cache_resource
 def load_llm():
     return ChatOpenAI(
@@ -101,18 +96,19 @@ def load_llm():
         model="mistralai/mixtral-8x7b-instruct"
     )
 
+# === Chat History ===
 if "history" not in st.session_state:
     st.session_state.history = []
 
+# === Display Chat Bubbles ===
 for role, msg in st.session_state.history:
     bubble = "user-bubble" if role == "user" else "lexa-bubble"
     st.markdown(f'<div class="{bubble}">{msg}</div>', unsafe_allow_html=True)
 
-with st.form(key="chat_form", clear_on_submit=True):
-    st.markdown('<div class="chat-input">', unsafe_allow_html=True)
-    user_input = st.text_input("Ask Lexa about Nigerian law...", key="input", label_visibility="collapsed", placeholder="Ask Lexa about Nigerian law...")
-    submitted = st.form_submit_button("📤")
-    st.markdown('</div>', unsafe_allow_html=True)
+# === Chat Input Field ===
+with st.form("chat_form", clear_on_submit=True):
+    user_input = st.text_input("Type your question...", key="input", label_visibility="collapsed")
+    submitted = st.form_submit_button("📤", use_container_width=True)
 
 if submitted and user_input:
     st.session_state.history.append(("user", user_input))
@@ -127,10 +123,10 @@ if submitted and user_input:
                 retriever=db.as_retriever(),
                 return_source_documents=False
             )
-            prompt = f"You're Lexa, a Nigerian legal analyst. Explain the user's query in a way that helps them understand the legal implications and remedies available. Question: {user_input}"
-            reply = qa.run(prompt)
+            full_prompt = f"You're Lexa, a Nigerian legal analyst. Explain the user's query in a way that helps them understand the legal implications and remedies available. Question: {user_input}"
+            reply = qa.run(full_prompt)
     except Exception as e:
         reply = f"⚠️ Lexa encountered an error:\n`{str(e)}`"
-    
+
     st.session_state.history.append(("lexa", reply))
     st.rerun()
