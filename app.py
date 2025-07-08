@@ -113,11 +113,37 @@ for role, msg in st.session_state.history:
 
 # === Chat input form ===
 with st.form(key="chat_form", clear_on_submit=True):
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        user_input = st.text_input("Ask Lexa a legal question...", key="input", label_visibility="collapsed")
-    with col2:
-        submitted = st.form_submit_button(" ", use_container_width=True)
+    st.markdown("""
+    <style>
+    .custom-input input {
+        border: 1px solid #ccc;
+        border-radius: 25px;
+        padding: 0.6rem 1.2rem;
+        font-size: 16px;
+        width: 100%;
+    }
+    .custom-send-btn {
+        background-color: #25D366;
+        border: none;
+        color: white;
+        padding: 0.55rem 0.8rem;
+        font-size: 18px;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background-color 0.2s;
+        margin-left: 0.5rem;
+    }
+    .custom-send-btn:hover {
+        background-color: #1DA851;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+    input_col, btn_col = st.columns([0.88, 0.12])
+    with input_col:
+        user_input = st.text_input("Ask Lexa about Nigerian law (e.g., land disputes, breach of contract)", key="input", label_visibility="collapsed", placeholder="Ask Lexa about Nigerian law...")
+    with btn_col:
+        submitted = st.form_submit_button("➤", use_container_width=True)
 
 if submitted and user_input:
     st.session_state.history.append(("user", user_input))
