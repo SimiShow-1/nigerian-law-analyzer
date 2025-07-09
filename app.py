@@ -113,7 +113,7 @@ st.markdown(f"""
     border-bottom-right-radius: 4px;
 }}
 .bot-message {{
-    background: #f1f1f1;
+    background: #291616;
     margin-right: auto;
     border-bottom-left-radius: 4px;
 }}
