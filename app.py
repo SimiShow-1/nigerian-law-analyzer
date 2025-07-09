@@ -18,65 +18,103 @@ st.set_page_config(page_title="Lexa – Nigerian Law Analyzer", page_icon="🧠"
 st.image(LOGO_PATH, width=100)
 st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 
-# === Custom CSS for WhatsApp-style Input ===
+# === NEW: MODERN CHAT UI CSS ===
 st.markdown("""
 <style>
+/* Main chat container */
 .chat-container {
+    height: 70vh;
+    overflow-y: auto;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 10px;
+    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
-    height: 82vh;
-    overflow-y: auto;
+    gap: 12px;
 }
-.bubble {
-    max-width: 75%;
-    padding: 12px;
-    margin-bottom: 10px;
-    font-size: 16px;
-    font-weight: 500;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+
+/* Message bubbles */
+.message {
+    max-width: 80%;
+    padding: 12px 16px;
+    border-radius: 18px;
+    line-height: 1.4;
+    position: relative;
+    word-wrap: break-word;
 }
-.user-bubble {
+
+.user-message {
     align-self: flex-end;
-    background-color: #cceeff;
-    color: #000000;
+    background-color: #0078d4;
+    color: white;
+    border-bottom-right-radius: 4px;
 }
-.lexa-bubble {
+
+.bot-message {
     align-self: flex-start;
-    background-color: #ebebeb;
-    color: #222222;
+    background-color: #f1f1f1;
+    color: #333;
+    border-bottom-left-radius: 4px;
 }
-.input-area {
+
+/* Input area - sticks to bottom */
+.input-container {
     position: fixed;
-    bottom: 10px;
-    left: 3%;
-    right: 3%;
-    background-color: #ffffff;
-    padding: 5px;
-    border-radius: 10px;
-    display: flex;
-    border: 1px solid #ccc;
-}
-.input-area input[type="text"] {
-    flex-grow: 1;
-    border: none;
-    outline: none;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 80%;
+    max-width: 800px;
+    background: white;
     padding: 10px;
+    border-radius: 20px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    display: flex;
+    z-index: 100;
+}
+
+.input-container input {
+    flex: 1;
+    padding: 12px 16px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    outline: none;
     font-size: 16px;
 }
-.input-area button {
-    border: none;
-    background-color: #25D366;
+
+.input-container button {
+    margin-left: 10px;
+    padding: 12px 20px;
+    background-color: #0078d4;
     color: white;
-    font-size: 18px;
-    padding: 0 16px;
-    border-radius: 0 10px 10px 0;
+    border: none;
+    border-radius: 20px;
     cursor: pointer;
+    font-weight: 500;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# === Load Datasets ===
+# === Load Datasets === 
 @st.cache_data
 def load_documents():
     all_docs = []
@@ -110,29 +148,30 @@ def load_llm():
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# === Chat Display ===
-st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-for role, msg in st.session_state.history:
-    bubble_class = "user-bubble" if role == "user" else "lexa-bubble"
-    st.markdown(f'<div class="bubble {bubble_class}">{msg}</div>', unsafe_allow_html=True)
-st.markdown('</div>', unsafe_allow_html=True)
+# === NEW: IMPROVED CHAT DISPLAY ===
+chat_placeholder = st.empty()
+with chat_placeholder.container():
+    st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
+    for role, msg in st.session_state.history:
+        message_class = "user-message" if role == "user" else "bot-message"
+        st.markdown(f'<div class="message {message_class}">{msg}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# === Input Bar ===
-st.markdown('<div class="input-area">', unsafe_allow_html=True)
-with st.form(key="input_form", clear_on_submit=True):
-    col1, col2 = st.columns([0.88, 0.12])
-    with col1:
-        user_input = st.text_input("", key="input", label_visibility="collapsed", placeholder="Ask Lexa something...")
-    with col2:
-        submitted = st.form_submit_button("📤")
-st.markdown('</div>', unsafe_allow_html=True)
+# === NEW: FIXED INPUT AREA ===
+input_placeholder = st.empty()
+with input_placeholder.container():
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
+    with st.form(key="input_form", clear_on_submit=True):
+        user_input = st.text_input("", key="input", label_visibility="collapsed", placeholder="Ask Lexa about Nigerian law...")
+        submitted = st.form_submit_button("Send")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # === Response Logic ===
 if submitted and user_input:
     st.session_state.history.append(("user", user_input))
     try:
         if user_input.strip().lower() in GREETINGS:
-            reply = "Hi, I'm Lexa. You can ask me anything about Nigerian Law—Contract, Land, or more."
+            reply = "Hello! I'm Lexa, your Nigerian law assistant. How can I help you today?"
         else:
             docs = load_documents()
             db = load_vectorstore(docs)
@@ -144,7 +183,17 @@ if submitted and user_input:
             full_prompt = f"You're Lexa, a Nigerian legal analyst. Explain the user's query in a way that helps them understand the legal implications and remedies available. Question: {user_input}"
             reply = qa.invoke(full_prompt)
     except Exception as e:
-        reply = f"⚠️ Lexa encountered an error:\n`{str(e)}`"
+        reply = f"Sorry, I encountered an error processing your request. Please try again."
     st.session_state.history.append(("lexa", reply))
     st.rerun()
 
+# === NEW: AUTO-SCROLL TO BOTTOM ===
+st.markdown("""
+<script>
+// Auto-scroll to bottom of chat
+window.onload = function() {
+    var container = document.getElementById("chat-container");
+    container.scrollTop = container.scrollHeight;
+};
+</script>
+""", unsafe_allow_html=True)
