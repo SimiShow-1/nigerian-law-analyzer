@@ -21,112 +21,34 @@ st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 # === MODERN CHAT UI ===
 st.markdown("""
 <style>
-/* Main container */
-[data-testid="stAppViewContainer"] {
-    background-color: #f5f7fb;
+/* Main Background */
+.stApp {
+    background-color: #f8fafc !important;  /* Very light blue-gray */
 }
 
-/* Chat container - fills available space */
+/* Chat Container */
 .chat-container {
-    height: calc(100vh - 180px);
-    overflow-y: auto;
-    padding: 20px 5%;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    background: transparent;
+    background: transparent !important;
+    padding-bottom: 100px; /* Space for input */
 }
 
-/* Message bubbles */
-.message {
-    max-width: 75%;
-    padding: 12px 16px;
-    border-radius: 18px;
-    line-height: 1.5;
-    font-size: 15px;
-    position: relative;
-    word-wrap: break-word;
-    animation: fadeIn 0.3s ease;
-}
-
+/* Your Existing Bubbles (Improved) */
 .user-message {
-    align-self: flex-end;
-    background: #3f51b5;
+    background: #3f51b5;  /* Professional blue */
     color: white;
-    border-bottom-right-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border-bottom-right-radius: 4px !important;
 }
 
 .bot-message {
-    align-self: flex-start;
     background: white;
-    color: #333;
-    border-bottom-left-radius: 4px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    border: 1px solid #e0e0e0;
+    border: 1px solid #e2e8f0;
+    border-left: 4px solid #2c3e50;  /* Navy accent */
 }
 
-/* Input area */
+/* Input Box (Your existing style - just ensuring visibility) */
 .input-container {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 90%;
-    max-width: 800px;
     background: white;
-    padding: 8px 15px;
-    border-radius: 25px;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    display: flex;
-    align-items: center;
-    z-index: 100;
-    border: 1px solid #e0e0e0;
-}
-
-.input-container input {
-    flex: 1;
-    padding: 10px 15px;
-    border: none;
-    outline: none;
-    font-size: 16px;
-    background: transparent;
-}
-
-/* Paper plane button */
-.input-container button {
-    background: none;
-    border: none;
-    color: #3f51b5;
-    cursor: pointer;
-    padding: 5px 0 5px 10px;
-    font-size: 20px;
-    transition: all 0.2s;
-}
-
-.input-container button:hover {
-    color: #303f9f;
-    transform: translateX(2px);
-}
-
-/* Animations */
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-/* Scrollbar */
-::-webkit-scrollbar {
-    width: 6px;
-}
-
-::-webkit-scrollbar-track {
-    background: rgba(0,0,0,0.05);
-}
-
-::-webkit-scrollbar-thumb {
-    background: rgba(0,0,0,0.2);
-    border-radius: 3px;
+    box-shadow: 0 -2px 15px rgba(0,0,0,0.1);
 }
 </style>
 """, unsafe_allow_html=True)
