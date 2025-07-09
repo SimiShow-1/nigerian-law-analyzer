@@ -18,98 +18,115 @@ st.set_page_config(page_title="Lexa – Nigerian Law Analyzer", page_icon="🧠"
 st.image(LOGO_PATH, width=100)
 st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
 
-# === NEW: MODERN CHAT UI CSS ===
+# === MODERN CHAT UI ===
 st.markdown("""
 <style>
-/* Main chat container */
+/* Main container */
+[data-testid="stAppViewContainer"] {
+    background-color: #f5f7fb;
+}
+
+/* Chat container - fills available space */
 .chat-container {
-    height: 70vh;
+    height: calc(100vh - 180px);
     overflow-y: auto;
-    padding: 20px;
-    background-color: #f9f9f9;
-    border-radius: 10px;
-    margin-bottom: 20px;
+    padding: 20px 5%;
     display: flex;
     flex-direction: column;
     gap: 12px;
+    background: transparent;
 }
 
 /* Message bubbles */
 .message {
-    max-width: 80%;
+    max-width: 75%;
     padding: 12px 16px;
     border-radius: 18px;
-    line-height: 1.4;
+    line-height: 1.5;
+    font-size: 15px;
     position: relative;
     word-wrap: break-word;
+    animation: fadeIn 0.3s ease;
 }
 
 .user-message {
     align-self: flex-end;
-    background-color: #0078d4;
+    background: #3f51b5;
     color: white;
     border-bottom-right-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .bot-message {
     align-self: flex-start;
-    background-color: #f1f1f1;
+    background: white;
     color: #333;
     border-bottom-left-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    border: 1px solid #e0e0e0;
 }
 
-/* Input area - sticks to bottom */
+/* Input area */
 .input-container {
     position: fixed;
     bottom: 20px;
     left: 50%;
     transform: translateX(-50%);
-    width: 80%;
+    width: 90%;
     max-width: 800px;
     background: white;
-    padding: 10px;
-    border-radius: 20px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    padding: 8px 15px;
+    border-radius: 25px;
+    box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
     display: flex;
+    align-items: center;
     z-index: 100;
+    border: 1px solid #e0e0e0;
 }
 
 .input-container input {
     flex: 1;
-    padding: 12px 16px;
-    border: 1px solid #ddd;
-    border-radius: 20px;
+    padding: 10px 15px;
+    border: none;
     outline: none;
     font-size: 16px;
+    background: transparent;
 }
 
+/* Paper plane button */
 .input-container button {
-    margin-left: 10px;
-    padding: 12px 20px;
-    background-color: #0078d4;
-    color: white;
+    background: none;
     border: none;
-    border-radius: 20px;
+    color: #3f51b5;
     cursor: pointer;
-    font-weight: 500;
+    padding: 5px 0 5px 10px;
+    font-size: 20px;
+    transition: all 0.2s;
 }
 
-/* Scrollbar styling */
+.input-container button:hover {
+    color: #303f9f;
+    transform: translateX(2px);
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Scrollbar */
 ::-webkit-scrollbar {
-    width: 8px;
+    width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: rgba(0,0,0,0.05);
 }
 
 ::-webkit-scrollbar-thumb {
-    background: #888;
-    border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-    background: #555;
+    background: rgba(0,0,0,0.2);
+    border-radius: 3px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -148,7 +165,7 @@ def load_llm():
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# === NEW: IMPROVED CHAT DISPLAY ===
+# === Chat Display ===
 chat_placeholder = st.empty()
 with chat_placeholder.container():
     st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
@@ -157,13 +174,17 @@ with chat_placeholder.container():
         st.markdown(f'<div class="message {message_class}">{msg}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# === NEW: FIXED INPUT AREA ===
+# === Input Area ===
 input_placeholder = st.empty()
 with input_placeholder.container():
     st.markdown('<div class="input-container">', unsafe_allow_html=True)
     with st.form(key="input_form", clear_on_submit=True):
-        user_input = st.text_input("", key="input", label_visibility="collapsed", placeholder="Ask Lexa about Nigerian law...")
-        submitted = st.form_submit_button("Send")
+        col1, col2 = st.columns([0.9, 0.1])
+        with col1:
+            user_input = st.text_input("", key="input", label_visibility="collapsed", placeholder="Ask about Nigerian law...")
+        with col2:
+            submitted = st.form_submit_button("✈️", help="Send")
+            st.markdown('<style>div[data-testid="stFormSubmitButton"] button {width: 100%;}</style>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
 # === Response Logic ===
@@ -180,20 +201,19 @@ if submitted and user_input:
                 retriever=db.as_retriever(),
                 return_source_documents=False
             )
-            full_prompt = f"You're Lexa, a Nigerian legal analyst. Explain the user's query in a way that helps them understand the legal implications and remedies available. Question: {user_input}"
+            full_prompt = f"You're Lexa, a Nigerian legal analyst. Provide clear, concise answers about Nigerian law. Question: {user_input}"
             reply = qa.invoke(full_prompt)
     except Exception as e:
-        reply = f"Sorry, I encountered an error processing your request. Please try again."
+        reply = f"Sorry, I encountered an error. Please try again."
     st.session_state.history.append(("lexa", reply))
     st.rerun()
 
-# === NEW: AUTO-SCROLL TO BOTTOM ===
+# Auto-scroll to bottom
 st.markdown("""
 <script>
-// Auto-scroll to bottom of chat
-window.onload = function() {
-    var container = document.getElementById("chat-container");
+document.addEventListener("DOMContentLoaded", function() {
+    const container = document.getElementById("chat-container");
     container.scrollTop = container.scrollHeight;
-};
+});
 </script>
 """, unsafe_allow_html=True)
