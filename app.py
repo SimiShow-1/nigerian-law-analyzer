@@ -2,140 +2,235 @@ import streamlit as st
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_core.documents import Document
-from langchain.text_splitter import CharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.chains import RetrievalQA
 from langchain_community.chat_models import ChatOpenAI
 import json
 import os
+from typing import List, Tuple
 
 # === CONFIG ===
 LOGO_PATH = "lexa_logo.png"
 DATASET_PATHS = ["contract_law_dataset.json", "land_law_dataset.json"]
 GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
+PRIMARY_COLOR = "#3f51b5"  # Professional blue
 
 # === PAGE SETUP ===
-st.set_page_config(page_title="Lexa – Nigerian Law Analyzer", page_icon="🧠", layout="wide")
-st.image(LOGO_PATH, width=100)
-st.markdown("## **Lexa**: Your Nigerian Law Analyzer")
+st.set_page_config(
+    page_title="Lexa – Nigerian Law Analyzer", 
+    page_icon="🧠", 
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
-# === MODERN CHAT UI ===
-st.markdown("""
+# === MODERN UI ===
+st.markdown(f"""
 <style>
-/* Main Background */
-.stApp {
-    background-color: #f8fafc !important;  /* Very light blue-gray */
-}
+/* Background */
+.stApp {{
+    background-color: #f8fafc !important;
+}}
 
 /* Chat Container */
-.chat-container {
-    background: transparent !important;
-    padding-bottom: 100px; /* Space for input */
-}
+.chat-container {{
+    height: calc(100vh - 180px);
+    overflow-y: auto;
+    padding: 20px 5%;
+    background: transparent;
+}}
 
-/* Your Existing Bubbles (Improved) */
-.user-message {
-    background: #3f51b5;  /* Professional blue */
+/* Message Bubbles */
+.message {{
+    max-width: 78%;
+    padding: 14px 18px;
+    border-radius: 18px;
+    line-height: 1.5;
+    font-size: 15px;
+    margin-bottom: 12px;
+    animation: fadeIn 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}}
+
+.user-message {{
+    align-self: flex-end;
+    background: {PRIMARY_COLOR};
     color: white;
     border-bottom-right-radius: 4px !important;
-}
+}}
 
-.bot-message {
+.bot-message {{
+    align-self: flex-start;
     background: white;
-    border: 1px solid #e2e8f0;
-    border-left: 4px solid #2c3e50;  /* Navy accent */
-}
+    border-left: 4px solid #2c3e50;
+    color: #333;
+}}
 
-/* Input Box (Your existing style - just ensuring visibility) */
-.input-container {
+/* Input Area */
+.input-container {{
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 800px;
     background: white;
+    padding: 8px 15px;
+    border-radius: 25px;
     box-shadow: 0 -2px 15px rgba(0,0,0,0.1);
-}
+    z-index: 100;
+    border: 1px solid #e2e8f0;
+}}
+
+.input-container input {{
+    flex: 1;
+    padding: 12px 15px;
+    border: none;
+    font-size: 16px;
+}}
+
+/* Paper Plane Button */
+.input-container button {{
+    background: transparent;
+    border: none;
+    color: {PRIMARY_COLOR};
+    font-size: 22px;
+    padding: 0 0 0 12px;
+    transition: transform 0.2s;
+}}
+
+.input-container button:hover {{
+    transform: translateX(3px);
+    color: #303f9f;
+}}
+
+/* Animations & Misc */
+@keyframes fadeIn {{
+    from {{ opacity: 0; transform: translateY(10px); }}
+    to {{ opacity: 1; transform: translateY(0); }}
+}}
+
+::-webkit-scrollbar {{
+    width: 6px;
+}}
+
+::-webkit-scrollbar-thumb {{
+    background: rgba(0,0,0,0.1);
+    border-radius: 3px;
+}}
 </style>
 """, unsafe_allow_html=True)
 
-# === Load Datasets === 
+# === LOADERS ===
 @st.cache_data
-def load_documents():
+def load_documents() -> List[Document]:
+    """Load and preprocess legal documents"""
     all_docs = []
     for path in DATASET_PATHS:
         if os.path.exists(path):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
-                for i in data:
-                    title = i.get("title") or i.get("topic") or "Untitled"
-                    content = i.get("content") or i.get("definition") or ""
-                    all_docs.append(Document(page_content=f"{title}\n\n{content}"))
+                for item in data:
+                    title = item.get("title", "Untitled")
+                    content = item.get("content", "")
+                    all_docs.append(Document(
+                        page_content=f"TITLE: {title}\nCONTENT: {content}",
+                        metadata={"source": path}
+                    ))
     return all_docs
 
 @st.cache_resource
-def load_vectorstore(_docs):
-    splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
+def load_vectorstore(_docs: List[Document]):
+    """Create FAISS vectorstore with better chunking"""
+    splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1500,
+        chunk_overlap=300,
+        separators=["\n\n", "\n", " ", ""]
+    )
     chunks = splitter.split_documents(_docs)
-    embed = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    embed = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-mpnet-base-v2"  # More accurate
+    )
     return FAISS.from_documents(chunks, embed)
 
 @st.cache_resource
 def load_llm():
+    """Configure LLM with better parameters"""
     return ChatOpenAI(
         openai_api_base="https://openrouter.ai/api/v1",
         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-        temperature=0.7,
-        model="mistralai/mixtral-8x7b-instruct"
+        temperature=0.5,  # More precise answers
+        model="mistralai/mixtral-8x7b-instruct",
+        max_tokens=2000
     )
 
-# === Chat History ===
+# === CHAT LOGIC ===
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history: List[Tuple[str, str]] = []
 
-# === Chat Display ===
-chat_placeholder = st.empty()
-with chat_placeholder.container():
+# Header
+st.image(LOGO_PATH, width=100)
+st.markdown("## **Lexa**: Nigerian Law Assistant")
+
+# Chat Display
+with st.container():
     st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
     for role, msg in st.session_state.history:
-        message_class = "user-message" if role == "user" else "bot-message"
-        st.markdown(f'<div class="message {message_class}">{msg}</div>', unsafe_allow_html=True)
+        css_class = "user-message" if role == "user" else "bot-message"
+        st.markdown(f'<div class="message {css_class}">{msg}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# === Input Area ===
-input_placeholder = st.empty()
-with input_placeholder.container():
-    st.markdown('<div class="input-container">', unsafe_allow_html=True)
-    with st.form(key="input_form", clear_on_submit=True):
-        col1, col2 = st.columns([0.9, 0.1])
-        with col1:
-            user_input = st.text_input("", key="input", label_visibility="collapsed", placeholder="Ask about Nigerian law...")
-        with col2:
-            submitted = st.form_submit_button("✈️", help="Send")
-            st.markdown('<style>div[data-testid="stFormSubmitButton"] button {width: 100%;}</style>', unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
+# Input Area
+with st.form(key="chat_form", clear_on_submit=True):
+    cols = st.columns([0.85, 0.15])
+    with cols[0]:
+        user_input = st.text_input(
+            "", 
+            key="input",
+            label_visibility="collapsed",
+            placeholder="Ask about Nigerian contract or land law..."
+        )
+    with cols[1]:
+        submitted = st.form_submit_button("✈️")
 
-# === Response Logic ===
-if submitted and user_input:
+# Response Handling
+if submitted and user_input.strip():
     st.session_state.history.append(("user", user_input))
+    
     try:
         if user_input.strip().lower() in GREETINGS:
-            reply = "Hello! I'm Lexa, your Nigerian law assistant. How can I help you today?"
+            reply = "Hello! I'm Lexa, your Nigerian legal assistant. How can I help you today?"
         else:
             docs = load_documents()
             db = load_vectorstore(docs)
+            
             qa = RetrievalQA.from_chain_type(
                 llm=load_llm(),
-                retriever=db.as_retriever(),
+                chain_type="stuff",
+                retriever=db.as_retriever(search_kwargs={"k": 3}),
                 return_source_documents=False
             )
-            full_prompt = f"You're Lexa, a Nigerian legal analyst. Provide clear, concise answers about Nigerian law. Question: {user_input}"
-            reply = qa.invoke(full_prompt)
+            
+            prompt = f"""You are Lexa, a Nigerian legal expert. Provide:
+            1. Clear explanation of the law
+            2. Relevant statutes
+            3. Practical implications
+            
+            Question: {user_input}"""
+            
+            reply = qa.invoke(prompt)["result"]
+            
     except Exception as e:
-        reply = f"Sorry, I encountered an error. Please try again."
+        reply = "⚠️ Sorry, I encountered an error. Please try again."
+    
     st.session_state.history.append(("lexa", reply))
     st.rerun()
 
-# Auto-scroll to bottom
+# Auto-scroll JS
 st.markdown("""
 <script>
-document.addEventListener("DOMContentLoaded", function() {
-    const container = document.getElementById("chat-container");
-    container.scrollTop = container.scrollHeight;
+window.addEventListener('load', function() {
+    const chat = document.getElementById('chat-container');
+    chat.scrollTop = chat.scrollHeight;
 });
 </script>
 """, unsafe_allow_html=True)
