@@ -13,7 +13,28 @@ from typing import List, Tuple
 LOGO_PATH = "lexa_logo.png"
 DATASET_PATHS = ["contract_law_dataset.json", "land_law_dataset.json"]
 GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
-PRIMARY_COLOR = "#3f51b5"  # Professional blue
+PRIMARY_COLOR = "#3f51b5"
+
+# === JS UTILITIES ===
+def inject_js():
+    st.markdown("""
+    <script>
+    function submitForm() {
+        const userInput = document.getElementById("user_input");
+        const hiddenInput = document.getElementById("hidden_input");
+        if (userInput.value.trim()) {
+            hiddenInput.value = userInput.value;
+            document.getElementById("chat_form").submit();
+            userInput.value = "";
+        }
+    }
+    window.addEventListener('load', () => {
+        document.getElementById("user_input")?.focus();
+    });
+    </script>
+    """, unsafe_allow_html=True)
+
+inject_js()
 
 # === PAGE SETUP ===
 st.set_page_config(
@@ -23,21 +44,22 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# === PERFECT CHAT UI ===
+# === CHAT UI ===
 st.markdown(f"""
 <style>
-/* === FIXED STRUCTURE === */
-html, body, #root, .stApp {{
-    height: 100%;
-    overflow: hidden;
+/* === BACKGROUND === */
+.stApp {{
+    background-color: #172d57 !important; /* Your requested color */
 }}
 
-/* Main chat area - scrollable */
-[data-testid="stAppViewContainer"] > .main {{
-    padding-bottom: 80px !important;
+/* Chat container */
+.chat-container {{
+    height: calc(100vh - 150px);
+    overflow-y: auto;
+    padding: 20px 5%;
 }}
 
-/* Chat bubbles */
+/* Messages */
 .message {{
     max-width: 80%;
     padding: 14px 18px;
@@ -60,18 +82,16 @@ html, body, #root, .stApp {{
     border-bottom-left-radius: 4px;
 }}
 
-/* === YOUR REQUESTED INPUT STYLE === */
+/* Input Area */
 .input-container {{
-    position: fixed !important;
+    position: fixed;
     bottom: 0;
     left: 0;
     right: 0;
     background: white;
     padding: 12px 5%;
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
     z-index: 999;
-    border-top: 1px solid #e0e0e0;
-    display: flex;
+    border-top: 1px solid #2a3a5a;
 }}
 
 .input-box {{
@@ -81,7 +101,6 @@ html, body, #root, .stApp {{
     border-right: none;
     border-radius: 24px 0 0 24px;
     font-size: 16px;
-    outline: none;
 }}
 
 .send-button {{
@@ -93,17 +112,15 @@ html, body, #root, .stApp {{
     font-size: 18px;
     cursor: pointer;
     transition: all 0.2s;
-    display: flex;
-    align-items: center;
 }}
 
 .send-button:hover {{
     background: #303f9f;
 }}
 
-/* Background */
-.stApp {{
-    background-color: #f5f7fb;
+/* Hide Streamlit's input */
+div[data-testid="stTextInput"] {{
+    display: none !important;
 }}
 
 @keyframes fadeIn {{
@@ -113,7 +130,7 @@ html, body, #root, .stApp {{
 </style>
 """, unsafe_allow_html=True)
 
-# === OPTIMIZED LOADERS ===
+# === LOADERS ===
 @st.cache_data(show_spinner=False)
 def load_documents() -> List[Document]:
     all_docs = []
@@ -148,13 +165,12 @@ def load_llm():
         openai_api_key=st.secrets["OPENROUTER_API_KEY"],
         temperature=0.6,
         model="anthropic/claude-3-haiku",
-        max_tokens=1500,
-        streaming=False
+        max_tokens=1500
     )
 
-# === CHAT IMPLEMENTATION ===
+# === CHAT LOGIC ===
 if "history" not in st.session_state:
-    st.session_state.history: List[Tuple[str, str]] = [] # type: ignore
+    st.session_state.history: List[Tuple[str, str]] = []
 
 # Header
 st.image(LOGO_PATH, width=100)
@@ -163,21 +179,25 @@ st.markdown("## **Lexa**: Nigerian Law Assistant")
 # Chat Display
 chat_placeholder = st.empty()
 with chat_placeholder.container():
+    st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
     for role, msg in st.session_state.history:
         css_class = "user-message" if role == "user" else "bot-message"
         st.markdown(f'<div class="message {css_class}">{msg}</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Fixed Input Area (Your Requested Style)
+# Input Area
 input_placeholder = st.empty()
 with input_placeholder.container():
     st.markdown("""
     <div class="input-container">
-        <input class="input-box" id="user_input" placeholder="Ask about Nigerian law..." type="text">
-        <button class="send-button" onclick="document.getElementById('chat_form').submit()">➤</button>
+        <input class="input-box" id="user_input" 
+               placeholder="Ask about Nigerian law..." 
+               type="text"
+               onkeypress="if(event.keyCode === 13) submitForm()">
+        <button class="send-button" onclick="submitForm()">➤</button>
     </div>
-    <form id="chat_form" style="display: none;"></form>
     """, unsafe_allow_html=True)
-
+    
     with st.form(key="chat_form", clear_on_submit=True):
         user_input = st.text_input("", key="input", label_visibility="collapsed")
         submitted = st.form_submit_button("Submit")
@@ -216,7 +236,7 @@ if submitted and user_input.strip():
 st.markdown("""
 <script>
 function scrollToBottom() {
-    const container = window.parent.document.querySelector(".stChatMessage");
+    const container = document.getElementById("chat-container");
     if (container) container.scrollTop = container.scrollHeight;
 }
 window.addEventListener("load", scrollToBottom);
