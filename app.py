@@ -15,47 +15,6 @@ DATASET_PATHS = ["contract_law_dataset.json", "land_law_dataset.json"]
 GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
 PRIMARY_COLOR = "#3f51b5"
 
-# === JS UTILITIES ===
-def inject_js():
-    st.markdown("""
-    <script>
-    // Robust form submission handler
-    function submitForm() {
-        const userInput = document.getElementById("user_input");
-        if (!userInput.value.trim()) return;
-        
-        // Create hidden form
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.style.display = "none";
-        
-        // Clone input value
-        const hiddenInput = document.createElement("input");
-        hiddenInput.name = "user_input";
-        hiddenInput.value = userInput.value;
-        form.appendChild(hiddenInput);
-        
-        document.body.appendChild(form);
-        form.submit();
-        userInput.value = "";
-    }
-    
-    // Auto-focus and mobile adjustments
-    window.addEventListener('load', () => {
-        const input = document.getElementById("user_input");
-        if (input) {
-            input.focus();
-            // Mobile viewport hack
-            if (window.innerWidth < 600) {
-                input.style.fontSize = "14px";
-            }
-        }
-    });
-    </script>
-    """, unsafe_allow_html=True)
-
-inject_js()
-
 # === PAGE SETUP ===
 st.set_page_config(
     page_title="Lexa – Nigerian Law Analyzer", 
@@ -64,7 +23,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# === CHAT UI ===
+# === STYLED CHAT UI ===
 st.markdown(f"""
 <style>
 /* === DARK BLUE BACKGROUND === */
@@ -74,10 +33,9 @@ st.markdown(f"""
 
 /* Chat container */
 .chat-container {{
-    height: calc(100vh - 150px);
+    height: calc(100vh - 180px);
     overflow-y: auto;
     padding: 20px 5%;
-    scroll-behavior: smooth;
 }}
 
 /* Messages */
@@ -88,7 +46,6 @@ st.markdown(f"""
     margin-bottom: 12px;
     animation: fadeIn 0.3s ease;
     line-height: 1.5;
-    word-break: break-word;
 }}
 
 .user-message {{
@@ -99,12 +56,36 @@ st.markdown(f"""
 }}
 
 .bot-message {{
-    background: #f1f1f1;
+    background:#291616;
     margin-right: auto;
     border-bottom-left-radius: 4px;
 }}
 
-/* Input Area - Fixed at bottom */
+/* === STREAMLIT INPUT STYLED TO YOUR PREFERENCE === */
+div.stTextInput > div > div > input {{
+    padding: 12px 16px !important;
+    border-radius: 24px 0 0 24px !important;
+    border-right: none !important;
+}}
+
+div.stTextInput > div > div {{
+    display: flex !important;
+}}
+
+div.stTextInput button {{
+    border-radius: 0 24px 24px 0 !important;
+    background: {PRIMARY_COLOR} !important;
+    color: white !important;
+    border: none !important;
+    margin-left: 0 !important;
+    padding: 0 20px !important;
+}}
+
+div.stTextInput button:hover {{
+    background: #303f9f !important;
+}}
+
+/* Input container */
 .input-container {{
     position: fixed;
     bottom: 0;
@@ -114,34 +95,6 @@ st.markdown(f"""
     padding: 12px 5%;
     z-index: 999;
     border-top: 1px solid #2a3a5a;
-    display: flex;
-}}
-
-.input-box {{
-    flex: 1;
-    padding: 12px 16px;
-    border: 1px solid #ddd;
-    border-right: none;
-    border-radius: 24px 0 0 24px;
-    font-size: 16px;
-    outline: none;
-}}
-
-.send-button {{
-    background: {PRIMARY_COLOR};
-    color: white;
-    border: none;
-    border-radius: 0 24px 24px 0;
-    padding: 0 20px;
-    font-size: 18px;
-    cursor: pointer;
-    transition: all 0.2s;
-    display: flex;
-    align-items: center;
-}}
-
-.send-button:hover {{
-    background: #303f9f;
 }}
 
 /* Mobile responsiveness */
@@ -149,23 +102,9 @@ st.markdown(f"""
     .input-container {{
         padding: 8px 3% !important;
     }}
-    .input-box {{
+    div.stTextInput > div > div > input {{
         padding: 10px 12px !important;
-        font-size: 14px !important;
     }}
-    .message {{
-        max-width: 90% !important;
-    }}
-}}
-
-/* Hide Streamlit's input */
-div[data-testid="stTextInput"] {{
-    display: none !important;
-}}
-
-/* Spinner styling */
-.stSpinner > div {{
-    background-color: {PRIMARY_COLOR} !important;
 }}
 
 @keyframes fadeIn {{
@@ -230,22 +169,21 @@ with chat_placeholder.container():
         st.markdown(f'<div class="message {css_class}">{msg}</div>', unsafe_allow_html=True)
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Input Area
-input_placeholder = st.empty()
-with input_placeholder.container():
-    st.markdown("""
-    <div class="input-container">
-        <input class="input-box" id="user_input" 
-               placeholder="Ask about Nigerian law..." 
-               type="text"
-               onkeypress="if(event.key === 'Enter') submitForm()">
-        <button class="send-button" onclick="submitForm()">➤</button>
-    </div>
-    """, unsafe_allow_html=True)
-    
+# === INPUT AREA - Using Streamlit's native input ===
+with st.container():
+    st.markdown('<div class="input-container">', unsafe_allow_html=True)
     with st.form(key="chat_form", clear_on_submit=True):
-        user_input = st.text_input("", key="input", label_visibility="collapsed")
-        submitted = st.form_submit_button("Submit")
+        cols = st.columns([0.85, 0.15])
+        with cols[0]:
+            user_input = st.text_input(
+                "", 
+                key="input", 
+                label_visibility="collapsed", 
+                placeholder="Ask about Nigerian law..."
+            )
+        with cols[1]:
+            submitted = st.form_submit_button("➤")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # Response Handling
 if submitted and user_input.strip():
