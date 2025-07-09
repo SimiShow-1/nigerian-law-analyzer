@@ -19,17 +19,37 @@ PRIMARY_COLOR = "#3f51b5"
 def inject_js():
     st.markdown("""
     <script>
+    // Robust form submission handler
     function submitForm() {
         const userInput = document.getElementById("user_input");
-        const hiddenInput = document.getElementById("hidden_input");
-        if (userInput.value.trim()) {
-            hiddenInput.value = userInput.value;
-            document.getElementById("chat_form").submit();
-            userInput.value = "";
-        }
+        if (!userInput.value.trim()) return;
+        
+        // Create hidden form
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.style.display = "none";
+        
+        // Clone input value
+        const hiddenInput = document.createElement("input");
+        hiddenInput.name = "user_input";
+        hiddenInput.value = userInput.value;
+        form.appendChild(hiddenInput);
+        
+        document.body.appendChild(form);
+        form.submit();
+        userInput.value = "";
     }
+    
+    // Auto-focus and mobile adjustments
     window.addEventListener('load', () => {
-        document.getElementById("user_input")?.focus();
+        const input = document.getElementById("user_input");
+        if (input) {
+            input.focus();
+            // Mobile viewport hack
+            if (window.innerWidth < 600) {
+                input.style.fontSize = "14px";
+            }
+        }
     });
     </script>
     """, unsafe_allow_html=True)
@@ -47,9 +67,9 @@ st.set_page_config(
 # === CHAT UI ===
 st.markdown(f"""
 <style>
-/* === BACKGROUND === */
+/* === DARK BLUE BACKGROUND === */
 .stApp {{
-    background-color: #172d57 !important; /* Your requested color */
+    background-color: #172d57 !important;
 }}
 
 /* Chat container */
@@ -57,6 +77,7 @@ st.markdown(f"""
     height: calc(100vh - 150px);
     overflow-y: auto;
     padding: 20px 5%;
+    scroll-behavior: smooth;
 }}
 
 /* Messages */
@@ -67,6 +88,7 @@ st.markdown(f"""
     margin-bottom: 12px;
     animation: fadeIn 0.3s ease;
     line-height: 1.5;
+    word-break: break-word;
 }}
 
 .user-message {{
@@ -82,7 +104,7 @@ st.markdown(f"""
     border-bottom-left-radius: 4px;
 }}
 
-/* Input Area */
+/* Input Area - Fixed at bottom */
 .input-container {{
     position: fixed;
     bottom: 0;
@@ -92,6 +114,7 @@ st.markdown(f"""
     padding: 12px 5%;
     z-index: 999;
     border-top: 1px solid #2a3a5a;
+    display: flex;
 }}
 
 .input-box {{
@@ -101,6 +124,7 @@ st.markdown(f"""
     border-right: none;
     border-radius: 24px 0 0 24px;
     font-size: 16px;
+    outline: none;
 }}
 
 .send-button {{
@@ -112,15 +136,36 @@ st.markdown(f"""
     font-size: 18px;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex;
+    align-items: center;
 }}
 
 .send-button:hover {{
     background: #303f9f;
 }}
 
+/* Mobile responsiveness */
+@media (max-width: 600px) {{
+    .input-container {{
+        padding: 8px 3% !important;
+    }}
+    .input-box {{
+        padding: 10px 12px !important;
+        font-size: 14px !important;
+    }}
+    .message {{
+        max-width: 90% !important;
+    }}
+}}
+
 /* Hide Streamlit's input */
 div[data-testid="stTextInput"] {{
     display: none !important;
+}}
+
+/* Spinner styling */
+.stSpinner > div {{
+    background-color: {PRIMARY_COLOR} !important;
 }}
 
 @keyframes fadeIn {{
@@ -193,7 +238,7 @@ with input_placeholder.container():
         <input class="input-box" id="user_input" 
                placeholder="Ask about Nigerian law..." 
                type="text"
-               onkeypress="if(event.keyCode === 13) submitForm()">
+               onkeypress="if(event.key === 'Enter') submitForm()">
         <button class="send-button" onclick="submitForm()">➤</button>
     </div>
     """, unsafe_allow_html=True)
@@ -222,7 +267,8 @@ if submitted and user_input.strip():
                 )
                 
                 reply = qa.run(
-                    f"Answer as a Nigerian legal expert. Be concise but thorough.\n"
+                    f"Answer as a Nigerian legal expert. Include:\n"
+                    f"1. Legal basis\n2. Relevant statutes\n3. Practical advice\n\n"
                     f"Question: {user_input}"
                 )
                 
@@ -239,9 +285,10 @@ function scrollToBottom() {
     const container = document.getElementById("chat-container");
     if (container) container.scrollTop = container.scrollHeight;
 }
-window.addEventListener("load", scrollToBottom);
-window.addEventListener("message", (event) => {
-    if (event.data.type === "streamlit:componentEvent") scrollToBottom();
-});
+// Scroll on new messages
+new MutationObserver(scrollToBottom).observe(
+    document.getElementById("chat-container"), 
+    { childList: true }
+);
 </script>
 """, unsafe_allow_html=True)
