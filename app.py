@@ -81,7 +81,8 @@ with st.container():
                     with st.spinner("Lexa is thinking..."):
                         reply = st.session_state.lexa.process_query(user_input)
                     st.session_state.messages.append({"role": "assistant", "content": reply})
-                    st.experimental_rerun()
+                    st.rerun()
+
                 except LexaError as e:
                     st.error(f"⚠️ Lexa Error: {str(e)}")
     st.markdown('</div>', unsafe_allow_html=True)
