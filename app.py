@@ -1,231 +1,87 @@
 import streamlit as st
-from langchain_community.embeddings import HuggingFaceEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.documents import Document
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.chains import RetrievalQA
-from langchain_community.chat_models import ChatOpenAI
-import json
+from streamlit_chat import message
 import os
-from typing import List, Tuple
+from lexa_core import LexaCore, LexaError
+import logging
 
-# === CONFIG ===
-LOGO_PATH = "lexa_logo.png"
-DATASET_PATHS = ["contract_law_dataset.json", "land_law_dataset.json"]
-GREETINGS = ["hi", "hello", "hey", "what's up", "sup", "how are you"]
-PRIMARY_COLOR = "#3f51b5"
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-## === PROMPT ENGINEERING ===
-def build_prompt(question: str) -> str:
-    return f"""
-You are Lexa, Nigeria's premier AI legal assistant. You must answer as a Nigerian legal expert, using local laws and real legal reasoning.
+# Session State
+if 'messages' not in st.session_state:
+    st.session_state.messages = []
+if 'lexa' not in st.session_state:
+    try:
+        st.session_state.lexa = LexaCore()
+    except LexaError as e:
+        st.error(f"❌ Failed to initialize Lexa: {str(e)}")
+        st.stop()
 
-When responding:
+# Page Config
+st.set_page_config(page_title="Lexa - Nigerian Legal AI", page_icon="⚖️", layout="wide")
 
-- Identify and explain the core legal issue clearly.
-- Apply Nigerian laws, especially **statutes** (e.g. Land Use Act, Contract Act) and **relevant Nigerian cases**.
-- Use legal analysis, not just summaries. Be precise and practical.
-- Offer the **best possible legal insight** with firm, helpful conclusions.
-- Only admit lack of knowledge if absolutely necessary.
-
-Always respond in a professional, accessible tone. Avoid repeating the question. Focus on clarity and helping the user understand what Nigerian law says and what steps they might take.
-
-**Question**: {question}
-
-**Lexa’s Response**:
-"""
-
-
-
-
-# === OPTIMIZED LOADERS ===
-@st.cache_data(show_spinner=False, ttl=3600)
-def load_documents() -> List[Document]:
-    docs = []
-    for path in DATASET_PATHS:
-        if os.path.exists(path):
-            with open(path, encoding="utf-8") as f:
-                data = json.load(f)
-                docs.extend(
-                    Document(
-                        page_content=f"{item.get('title', '')}\n\n{item.get('content', '')}",
-                        metadata={"source": path, "type": "legal_text"}
-                    )
-                    for item in data
-                )
-    return docs
-
-@st.cache_resource(show_spinner=False)
-def load_vectorstore(_docs: List[Document]):
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=150,
-        separators=["\n\n", "\n", "(?<=\. )"]
-    )
-    chunks = splitter.split_documents(_docs)
-    embed = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2",
-        model_kwargs={'device': 'cpu'}
-    )
-    return FAISS.from_documents(chunks, embed)
-
-@st.cache_resource(show_spinner=False)
-def load_llm():
-    return ChatOpenAI(
-        openai_api_base="https://openrouter.ai/api/v1",
-        openai_api_key=st.secrets["OPENROUTER_API_KEY"],
-        temperature=0.3,
-        model="anthropic/claude-3-haiku",
-        max_tokens=1000,
-        request_timeout=30
-    )
-
-# === STREAMLIT UI ===
-st.set_page_config(
-    page_title="Lexa – Nigerian Law Analyzer", 
-    page_icon="🧠", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
-st.markdown(f"""
+# Custom CSS for WhatsApp-style UI
+st.markdown("""
 <style>
-.stApp {{
-    background-color: #172d57 !important;
-}}
-.chat-container {{
-    height: calc(100vh - 180px);
+.chat-container {
+    height: 70vh;
     overflow-y: auto;
-    padding: 20px 5%;
-}}
-.message {{
-    max-width: 80%;
-    padding: 14px 18px;
-    border-radius: 18px;
-    margin-bottom: 12px;
-    animation: fadeIn 0.3s ease;
-    line-height: 1.5;
-}}
-.user-message {{
-    background: {PRIMARY_COLOR};
-    color: white;
-    margin-left: auto;
-    border-bottom-right-radius: 4px;
-}}
-.bot-message {{
-    background: #291616;
-    margin-right: auto;
-    border-bottom-left-radius: 4px;
-}}
-.input-container {{
+    padding-bottom: 80px;
+}
+.input-container {
     position: fixed;
     bottom: 0;
-    left: 0;
-    right: 0;
+    width: 100%;
     background: white;
-    padding: 12px 5%;
-    z-index: 999;
-    border-top: 1px solid #2a3a5a;
-}}
-div.stTextInput > div > div > input {{
-    padding: 12px 16px !important;
-    border-radius: 24px 0 0 24px !important;
-    border-right: none !important;
-}}
-div.stTextInput > div > div {{
-    display: flex !important;
-}}
-div.stTextInput button {{
-    border-radius: 0 24px 24px 0 !important;
-    background: {PRIMARY_COLOR} !important;
-    color: white !important;
-    border: none !important;
-    margin-left: 0 !important;
-    padding: 0 20px !important;
-}}
-@media (max-width: 600px) {{
-    .input-container {{ padding: 8px 3% !important; }}
-    div.stTextInput > div > div > input {{ padding: 10px 12px !important; }}
-}}
-@keyframes fadeIn {{
-    from {{ opacity: 0; transform: translateY(10px); }}
-    to {{ opacity: 1; transform: translateY(0); }}
-}}
+    padding: 10px;
+    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+}
+.stTextInput > div > div > input {
+    border-radius: 20px;
+    padding-right: 50px;
+}
+button.send-button {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# === CHAT LOGIC ===
-if "history" not in st.session_state:
-    st.session_state.history = []
+# Logo + Title
+st.image("lexa_logo.png", width=100)
+st.markdown("## **Lexa** – Your Nigerian Legal AI Assistant")
 
-# Header
-st.image(LOGO_PATH, width=100)
-st.markdown("## **Lexa**: Nigerian Law Assistant")
-
-# Chat Display
-chat_placeholder = st.empty()
-with chat_placeholder.container():
-    st.markdown('<div class="chat-container" id="chat-container">', unsafe_allow_html=True)
-    for role, msg in st.session_state.history:
-        css_class = "user-message" if role == "user" else "bot-message"
-        st.markdown(f'<div class="message {css_class}">{msg}</div>', unsafe_allow_html=True)
+# Chat history UI
+with st.container():
+    st.markdown('<div class="chat-container">', unsafe_allow_html=True)
+    for i, msg in enumerate(st.session_state.messages):
+        message(msg['content'], is_user=(msg['role'] == 'user'), key=f"{msg['role']}_{i}")
     st.markdown('</div>', unsafe_allow_html=True)
 
-# Input Area
-input_placeholder = st.empty()
-with input_placeholder.container():
+# Input area
+with st.container():
     st.markdown('<div class="input-container">', unsafe_allow_html=True)
-    with st.form(key="chat_form", clear_on_submit=True):
-        cols = st.columns([0.85, 0.15])
-        with cols[0]:
-            user_input = st.text_input(
-                "", 
-                key="input", 
-                label_visibility="collapsed", 
-                placeholder="Ask about Nigerian law..."
-            )
-        with cols[1]:
-            submitted = st.form_submit_button("➤")
+    col1, col2 = st.columns([11, 1])
+    with col1:
+        user_input = st.text_input("Ask a legal question...", key="input", label_visibility="collapsed")
+    with col2:
+        if st.button("✈️", key="send", use_container_width=True):
+            if user_input.strip():
+                st.session_state.messages.append({"role": "user", "content": user_input})
+                try:
+                    with st.spinner("Lexa is thinking..."):
+                        reply = st.session_state.lexa.process_query(user_input)
+                    st.session_state.messages.append({"role": "assistant", "content": reply})
+                    st.experimental_rerun()
+                except LexaError as e:
+                    st.error(f"⚠️ Lexa Error: {str(e)}")
     st.markdown('</div>', unsafe_allow_html=True)
-
-# Response Handling
-if submitted and user_input.strip():
-    st.session_state.history.append(("user", user_input))
-    
-    with st.spinner("Lexa is analyzing..."):
-        try:
-            if user_input.strip().lower() in GREETINGS:
-                reply = "Hello! I'm Lexa, your Nigerian legal assistant. How can I help you today?"
-            else:
-                docs = load_documents()
-                db = load_vectorstore(docs)
-                
-                qa = RetrievalQA.from_chain_type(
-                    llm=load_llm(),
-                    chain_type="stuff",
-                    retriever=db.as_retriever(search_kwargs={"k": 2}),
-                    verbose=False
-                )
-                
-                reply = qa.run(build_prompt(user_input))
-                reply = reply.replace("**IRAC Analysis**", "## Legal Analysis")
-                
-        except Exception as e:
-            reply = "Apologies, I'm currently overloaded. Please try again shortly."
-        
-        st.session_state.history.append(("lexa", reply))
-        st.rerun()
-
-# Auto-scroll JS
-st.markdown("""
-<script>
-function scrollToBottom() {
-    const container = document.getElementById("chat-container");
-    if (container) container.scrollTop = container.scrollHeight;
-}
-new MutationObserver(scrollToBottom).observe(
-    document.getElementById("chat-container"), 
-    { childList: true }
-);
-</script>
-""", unsafe_allow_html=True)
