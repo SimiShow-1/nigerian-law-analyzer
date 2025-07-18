@@ -85,6 +85,10 @@ Lexa's Response:
 
     def process_query(self, query: str) -> str:
         try:
+            greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "sup", "yo"]
+            if query.strip().lower() in greetings:
+                return "Hi there! I'm Lexa, your Nigerian Legal AI. Ask me anything about land law, contracts, or your rights."
+
             docs = self.vectorstore.similarity_search(query, k=3)
             context = "\n\n".join([doc.page_content for doc in docs])
             prompt = self.prompt_template.format(context=context, query=query)
