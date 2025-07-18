@@ -1,12 +1,13 @@
 import json
 import os
+import logging
 from typing import List
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.docstore.document import Document
-import logging
+import streamlit as st
 
 class LexaError(Exception):
     pass
@@ -16,10 +17,10 @@ class LexaCore:
         self.logger = logging.getLogger(__name__)
         self.embedding_model = "all-MiniLM-L6-v2"
         self.llm_model = "mistralai/mixtral-8x7b-instruct"
-        self.api_key = os.getenv("OPENROUTER_API_KEY") or self._get_from_streamlit()
+        self.api_key = self._get_from_streamlit()
 
         if not self.api_key:
-            raise LexaError("No OpenRouter API key found in environment or Streamlit secrets.")
+            raise LexaError("OPENROUTER_API_KEY not found in Streamlit secrets.")
 
         self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
         self.vectorstore = self._load_data()
@@ -32,7 +33,6 @@ class LexaCore:
 
     def _get_from_streamlit(self):
         try:
-            import streamlit as st
             return st.secrets["OPENROUTER_API_KEY"]
         except Exception:
             return None
@@ -41,7 +41,6 @@ class LexaCore:
         try:
             cache_path = "faiss_index"
             if os.path.exists(cache_path):
-                # ✅ Allow safe deserialization of your own FAISS index
                 return FAISS.load_local(cache_path, self.embeddings, allow_dangerous_deserialization=True)
 
             datasets = ['contract_law_dataset.json', 'land_law_dataset.json']
