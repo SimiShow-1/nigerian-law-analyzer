@@ -41,7 +41,8 @@ class LexaCore:
         try:
             cache_path = "faiss_index"
             if os.path.exists(cache_path):
-                return FAISS.load_local(cache_path, self.embeddings)
+                # ✅ Allow safe deserialization of your own FAISS index
+                return FAISS.load_local(cache_path, self.embeddings, allow_dangerous_deserialization=True)
 
             datasets = ['contract_law_dataset.json', 'land_law_dataset.json']
             documents = []
