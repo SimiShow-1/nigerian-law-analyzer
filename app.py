@@ -3,6 +3,9 @@ from streamlit_chat import message
 import os
 from lexa_core import LexaCore, LexaError
 import logging
+from dotenv import load_dotenv
+load_dotenv()
+
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
