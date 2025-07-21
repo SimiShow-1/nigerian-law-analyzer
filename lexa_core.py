@@ -1,7 +1,7 @@
 import json
 import os
 import logging
-from typing import List
+from typing import List, Optional, Dict, Any
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
@@ -10,90 +10,176 @@ from langchain.docstore.document import Document
 import streamlit as st
 
 class LexaError(Exception):
+    """Custom exception for Lexa-specific errors"""
     pass
 
 class LexaCore:
     def __init__(self):
+        """Initialize the Lexa legal AI assistant"""
         self.logger = logging.getLogger(__name__)
-        self.embedding_model = "all-MiniLM-L6-v2"
-        self.llm_model = "mistralai/mixtral-8x7b-instruct"
-        self.api_key = self._get_from_streamlit()
-
-        if not self.api_key:
-            raise LexaError("OPENROUTER_API_KEY not found in Streamlit secrets.")
-
+        self._validate_environment()
+        
+        # Model configuration
+        self.embedding_model = os.getenv("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+        self.llm_model = os.getenv("LLM_MODEL", "mistralai/mixtral-8x7b-instruct")
+        self.api_key = self._get_api_key()
+        
+        # Initialize components
         self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
-        self.vectorstore = self._load_data()
-        self.llm = ChatOpenAI(
-            model=self.llm_model,
-            openai_api_base="https://openrouter.ai/api/v1",
-            openai_api_key=self.api_key
-        )
+        self.vectorstore = self._load_vectorstore()
+        self.llm = self._initialize_llm()
         self.prompt_template = self._get_prompt_template()
 
-    def _get_from_streamlit(self):
-        try:
-            return st.secrets["OPENROUTER_API_KEY"]
-        except Exception:
-            return None
+    def _validate_environment(self) -> None:
+        """Validate required environment setup"""
+        if not os.path.exists("contract_law_dataset.json"):
+            raise LexaError("Contract law dataset not found")
+        if not os.path.exists("land_law_dataset.json"):
+            raise LexaError("Land law dataset not found")
 
-    def _load_data(self) -> FAISS:
+    def _get_api_key(self) -> str:
+        """Retrieve API key from Streamlit secrets or environment"""
         try:
-            cache_path = "faiss_index"
+            return st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+        except Exception as e:
+            self.logger.error(f"API key retrieval failed: {e}")
+            raise LexaError("API key configuration missing")
+
+    def _initialize_llm(self) -> ChatOpenAI:
+        """Initialize the LLM client"""
+        return ChatOpenAI(
+            model=self.llm_model,
+            openai_api_base=os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1"),
+            openai_api_key=self.api_key,
+            temperature=0.7,
+            max_tokens=2000,
+            streaming=True
+        )
+
+    def _load_vectorstore(self) -> FAISS:
+        """Load or create the FAISS vectorstore"""
+        cache_path = os.getenv("FAISS_INDEX_PATH", "faiss_index")
+        
+        try:
             if os.path.exists(cache_path):
-                return FAISS.load_local(cache_path, self.embeddings, allow_dangerous_deserialization=True)
+                self.logger.info("Loading existing FAISS index")
+                return FAISS.load_local(
+                    cache_path, 
+                    self.embeddings, 
+                    allow_dangerous_deserialization=True
+                )
 
-            datasets = ['contract_law_dataset.json', 'land_law_dataset.json']
-            documents = []
-
-            for dataset in datasets:
-                with open(dataset, 'r', encoding='utf-8') as f:
-                    data = json.load(f)
-                for item in data:
-                    content = item.get('content') or item.get('definition') or ""
-                    title = item.get('title') or item.get('topic') or "Untitled"
-                    documents.append(Document(page_content=f"{title}\n\n{content}"))
-
+            self.logger.info("Creating new FAISS index")
+            documents = self._load_documents()
+            
             if not documents:
-                raise LexaError("No documents found to load.")
+                raise LexaError("No legal documents loaded")
 
             vectorstore = FAISS.from_documents(documents, self.embeddings)
             vectorstore.save_local(cache_path)
             return vectorstore
 
         except Exception as e:
-            raise LexaError(f"Vectorstore load failed: {e}")
+            self.logger.error(f"Vectorstore initialization failed: {e}")
+            raise LexaError("Failed to initialize legal knowledge base")
+
+    def _load_documents(self) -> List[Document]:
+        """Load and process legal documents"""
+        datasets = ['contract_law_dataset.json', 'land_law_dataset.json']
+        documents = []
+        
+        for dataset in datasets:
+            try:
+                with open(dataset, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                for item in data:
+                    content = self._extract_content(item)
+                    title = self._extract_title(item)
+                    metadata = self._extract_metadata(item, dataset)
+                    
+                    documents.append(Document(
+                        page_content=f"{title}\n\n{content}",
+                        metadata=metadata
+                    ))
+                    
+            except Exception as e:
+                self.logger.warning(f"Failed to load {dataset}: {e}")
+                continue
+                
+        return documents
+
+    def _extract_content(self, item: Dict[str, Any]) -> str:
+        """Extract content from document item"""
+        return (item.get('content') or item.get('definition') 
+                or item.get('text') or item.get('summary') or "")
+
+    def _extract_title(self, item: Dict[str, Any]) -> str:
+        """Extract title from document item"""
+        return (item.get('title') or item.get('topic') 
+                or item.get('name') or "Untitled")
+
+    def _extract_metadata(self, item: Dict[str, Any], source: str) -> Dict[str, Any]:
+        """Extract and clean metadata"""
+        metadata = {
+            'source': source,
+            'title': self._extract_title(item),
+            **{k: v for k, v in item.items() 
+              if k not in ['content', 'definition', 'text', 'summary', 'title', 'topic', 'name']}
+        }
+        return {k: v for k, v in metadata.items() if v is not None}
 
     def _get_prompt_template(self) -> PromptTemplate:
-        template = """
-You are Lexa, a Nigerian legal assistant AI. Analyze the question below with relevant Nigerian law, organized clearly:
+        """Return the structured legal analysis prompt template"""
+        template = """You are Lexa, a Nigerian legal assistant. Provide thorough legal analysis:
 
-1. Identify the legal issue(s)
-2. Explain the applicable law (cite exact Nigerian statutes when possible)
-3. Apply the law to the scenario
-4. Offer a brief conclusion and next steps if needed
-
-Avoid saying you're using any method like IRAC.
+1. **Legal Issue**: Identify the core legal question
+2. **Applicable Law**: Cite relevant Nigerian statutes/cases
+3. **Analysis**: Apply law to the facts
+4. **Conclusion**: Practical guidance
 
 Context: {context}
 
-User Question: {query}
+Question: {query}
 
-Lexa's Response:
-"""
+Respond in clear, professional language suitable for legal professionals."""
         return PromptTemplate(input_variables=["context", "query"], template=template)
 
     def process_query(self, query: str) -> str:
+        """Process a legal query and return response"""
         try:
-            greetings = ["hi", "hello", "hey", "good morning", "good afternoon", "good evening", "sup", "yo"]
-            if query.strip().lower() in greetings:
-                return "Hi there! I'm Lexa, your Nigerian Legal AI. Ask me anything about land law, contracts, or your rights."
+            query = query.strip()
+            if not query:
+                return "Please ask a legal question about Nigerian law."
+                
+            if self._is_greeting(query):
+                return self._get_greeting_response()
 
+            self.logger.info(f"Processing query: {query[:50]}...")
             docs = self.vectorstore.similarity_search(query, k=3)
-            context = "\n\n".join([doc.page_content for doc in docs])
-            prompt = self.prompt_template.format(context=context, query=query)
+            context = "\n\n---\n\n".join([doc.page_content for doc in docs])
+            
+            prompt = self.prompt_template.format(
+                context=context,
+                query=query
+            )
+            
             response = self.llm.invoke(prompt)
             return response.content.strip()
+            
         except Exception as e:
-            self.logger.error(f"Processing error: {e}")
-            raise LexaError(f"Could not process the query: {e}")
+            self.logger.error(f"Query processing failed: {e}")
+            raise LexaError("Sorry, I encountered an error. Please rephrase your question.")
+
+    def _is_greeting(self, text: str) -> bool:
+        """Check if input is a greeting"""
+        greetings = ["hi", "hello", "hey", "good morning", 
+                   "good afternoon", "good evening", "sup", "yo"]
+        return text.lower().split()[0] in greetings
+
+    def _get_greeting_response(self) -> str:
+        """Return appropriate greeting response"""
+        return ("Hello! I'm Lexa, your Nigerian legal assistant. "
+               "I can help with:\n\n"
+               "- Contract Law\n- Land Law\n- Legal Rights\n- Court Procedures\n\n"
+               "What legal question can I help you with today?")
