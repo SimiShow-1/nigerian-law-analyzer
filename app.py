@@ -14,8 +14,6 @@ def init_session_state():
         st.session_state.messages = []
     if 'input_key' not in st.session_state:
         st.session_state.input_key = 0
-    if 'lexa_initialized' not in st.session_state:
-        st.session_state.lexa_initialized = False
 
 init_session_state()
 
@@ -28,10 +26,9 @@ def initialize_lexa():
         st.error(f"❌ Failed to initialize Lexa: {str(e)}")
         st.stop()
 
-if not st.session_state.lexa_initialized:
+if 'lexa' not in st.session_state:
     with st.spinner("Initializing Lexa legal assistant..."):
-        lexa = initialize_lexa()
-        st.session_state.lexa_initialized = True
+        st.session_state.lexa = initialize_lexa()
 
 # Page configuration
 st.set_page_config(
@@ -149,7 +146,7 @@ with st.form("chat_input", clear_on_submit=True):
             st.session_state.messages.append({"role": "user", "content": user_input})
             
             with st.spinner("Lexa is researching your question..."):
-                response = lexa.process_query(user_input)
+                response = st.session_state.lexa.process_query(user_input)
             
             st.session_state.messages.append({"role": "assistant", "content": response})
             st.session_state.input_key += 1

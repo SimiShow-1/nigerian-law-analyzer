@@ -9,6 +9,9 @@ from langchain.prompts import PromptTemplate
 from langchain.docstore.document import Document
 import streamlit as st
 
+# Disable GPU Faiss warnings
+os.environ['FAISS_NO_GPU'] = '1'
+
 class LexaError(Exception):
     """Custom exception for Lexa-specific errors"""
     pass
@@ -17,6 +20,7 @@ class LexaCore:
     def __init__(self):
         """Initialize the Lexa legal AI assistant"""
         self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(logging.INFO)
         self._validate_environment()
         
         # Model configuration
@@ -29,18 +33,22 @@ class LexaCore:
         self.vectorstore = self._load_vectorstore()
         self.llm = self._initialize_llm()
         self.prompt_template = self._get_prompt_template()
+        self.logger.info("LexaCore initialized successfully")
 
     def _validate_environment(self) -> None:
         """Validate required environment setup"""
-        if not os.path.exists("contract_law_dataset.json"):
-            raise LexaError("Contract law dataset not found")
-        if not os.path.exists("land_law_dataset.json"):
-            raise LexaError("Land law dataset not found")
+        required_files = ["contract_law_dataset.json", "land_law_dataset.json"]
+        for file in required_files:
+            if not os.path.exists(file):
+                raise LexaError(f"Required data file not found: {file}")
 
     def _get_api_key(self) -> str:
         """Retrieve API key from Streamlit secrets or environment"""
         try:
-            return st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+            api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                raise LexaError("API key not found in configuration")
+            return api_key
         except Exception as e:
             self.logger.error(f"API key retrieval failed: {e}")
             raise LexaError("API key configuration missing")
@@ -52,8 +60,7 @@ class LexaCore:
             openai_api_base=os.getenv("OPENROUTER_API_BASE", "https://openrouter.ai/api/v1"),
             openai_api_key=self.api_key,
             temperature=0.7,
-            max_tokens=2000,
-            streaming=True
+            max_tokens=2000
         )
 
     def _load_vectorstore(self) -> FAISS:
