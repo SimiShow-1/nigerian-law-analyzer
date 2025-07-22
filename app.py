@@ -41,12 +41,12 @@ st.set_page_config(
 )
 
 # Load custom CSS
-css_path = "styles.css"
+css_path = "style.css"  # Changed from styles.css to style.css
 if os.path.exists(css_path):
     with open(css_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 else:
-    logger.warning("styles.css not found, using default styles")
+    logger.warning("style.css not found, using default styles")
     st.markdown("""
         <style>
         .chat-container {
@@ -85,6 +85,8 @@ else:
         }
         </style>
     """, unsafe_allow_html=True)
+
+  
 
 # Header
 st.markdown('<div class="header" role="banner">', unsafe_allow_html=True)
