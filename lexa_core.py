@@ -1,4 +1,3 @@
-
 import json
 import os
 import logging
@@ -14,6 +13,10 @@ import streamlit as st
 import hashlib
 from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
+
+# Configure logging with detailed output
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
 # Disable GPU Faiss warnings
 os.environ['FAISS_NO_GPU'] = '1'
@@ -36,7 +39,6 @@ class LexaCore:
     def __init__(self):
         """Initialize the Lexa legal AI assistant"""
         self.logger = logging.getLogger(__name__)
-        self.logger.setLevel(logging.DEBUG)
         self._validate_environment()
         
         # Model configuration
@@ -47,9 +49,13 @@ class LexaCore:
         
         # Initialize components
         try:
+            self.logger.debug("Initializing HuggingFace embeddings")
             self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
+            self.logger.debug("Loading vectorstore")
             self.vectorstore = self._load_vectorstore()
+            self.logger.debug("Initializing LLM")
             self.llm = self._initialize_llm()
+            self.logger.debug("Creating prompt template")
             self.prompt_template = self._get_prompt_template()
             self.query_cache = {}  # Simple in-memory cache for queries
             self.logger.info("LexaCore initialized successfully")
@@ -62,9 +68,14 @@ class LexaCore:
         required_files = ["contract_law_dataset.json", "land_law_dataset.json"]
         for file in required_files:
             if not os.path.exists(file):
+                self.logger.error(f"Required data file not found: {file}")
                 raise LexaError(f"Required data file not found: {file}")
+            if os.path.getsize(file) == 0:
+                self.logger.error(f"Data file is empty: {file}")
+                raise LexaError(f"Data file is empty: {file}")
         cache_path = os.getenv("FAISS_INDEX_PATH", "faiss_index")
         if not os.access(os.path.dirname(cache_path) or ".", os.W_OK):
+            self.logger.error(f"FAISS index path is not writable: {cache_path}")
             raise LexaError(f"FAISS index path is not writable: {cache_path}")
 
     def _get_api_key(self) -> str:
@@ -72,6 +83,7 @@ class LexaCore:
         try:
             api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
             if not api_key:
+                self.logger.error("API key not found in configuration")
                 raise LexaError("API key not found in configuration")
             return api_key
         except Exception as e:
@@ -101,9 +113,11 @@ class LexaCore:
                 # Validate index file integrity
                 expected_checksum = os.getenv("FAISS_INDEX_CHECKSUM")
                 if expected_checksum:
+                    self.logger.debug(f"Validating FAISS index checksum: {cache_path}")
                     with open(cache_path, "rb") as f:
                         actual_checksum = hashlib.sha256(f.read()).hexdigest()
                     if actual_checksum != expected_checksum:
+                        self.logger.error(f"FAISS index checksum mismatch: expected {expected_checksum}, got {actual_checksum}")
                         raise LexaError("FAISS index checksum mismatch")
                 return FAISS.load_local(
                     cache_path, 
@@ -115,8 +129,10 @@ class LexaCore:
             documents = self._load_documents()
             
             if not documents:
+                self.logger.error("No legal documents loaded from datasets")
                 raise LexaError("No legal documents loaded")
 
+            self.logger.debug(f"Creating FAISS index with {len(documents)} documents")
             vectorstore = FAISS.from_documents(documents, self.embeddings)
             vectorstore.save_local(cache_path)
             with open(cache_path, "rb") as f:
@@ -125,8 +141,8 @@ class LexaCore:
             return vectorstore
 
         except Exception as e:
-            self.logger.error(f"Vectorstore initialization failed: {e}")
-            raise LexaError("Failed to initialize legal knowledge base")
+            self.logger.error(f"Vectorstore initialization failed: {str(e)}")
+            raise LexaError(f"Failed to initialize legal knowledge base: {str(e)}")
 
     def _load_documents(self) -> List[Document]:
         """Load and process legal documents with validation"""
@@ -135,13 +151,21 @@ class LexaCore:
         
         for dataset in datasets:
             try:
+                self.logger.debug(f"Loading dataset: {dataset}")
                 with open(dataset, 'r', encoding='utf-8') as f:
                     data = json.load(f)
+                
+                if not isinstance(data, list):
+                    self.logger.error(f"Dataset {dataset} is not a list")
+                    raise LexaError(f"Invalid dataset format: {dataset} must be a JSON list")
                 
                 for item in data:
                     try:
                         validated_item = DatasetItem(**item)
                         content = self._extract_content(validated_item)
+                        if not content:
+                            self.logger.warning(f"Skipping item in {dataset} with no content")
+                            continue
                         title = self._extract_title(validated_item)
                         metadata = self._extract_metadata(validated_item, dataset)
                         
@@ -155,11 +179,15 @@ class LexaCore:
                 
                 self.logger.debug(f"Loaded {len(documents)} documents from {dataset}")
                 
+            except json.JSONDecodeError as e:
+                self.logger.error(f"Failed to parse JSON in {dataset}: {e}")
+                continue
             except Exception as e:
                 self.logger.warning(f"Failed to load {dataset}: {e}")
                 continue
                 
         if not documents:
+            self.logger.error("No valid legal documents loaded from any dataset")
             raise LexaError("No valid legal documents loaded from any dataset")
             
         return documents
