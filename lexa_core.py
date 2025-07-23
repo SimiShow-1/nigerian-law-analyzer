@@ -65,7 +65,9 @@ class LexaCore:
     def _get_api_key(self):
         api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
         if not api_key:
+            self.logger.error("API key not found in st.secrets or environment variable")
             raise LexaError("API key not found")
+        self.logger.info("API key loaded successfully")
         return api_key
 
     def _load_vectorstore(self):
@@ -107,18 +109,11 @@ class LexaCore:
         return documents
 
     def _get_prompt_template(self):
-        template = """You are Lexa, a Nigerian legal assistant. Answer based on Nigerian law:
-
-1. **Legal Issue**: What is the question?
-2. **Applicable Law**: Cite laws from context.
-3. **Analysis**: Apply law to the question.
-4. **Conclusion**: Give clear guidance.
+        template = """You are Lexa, a Nigerian legal assistant. Provide a clear, concise, and accurate answer based on Nigerian law, using the provided context. Respond in a natural, conversational tone as if advising a client, directly addressing the question without labeling sections like 'Legal Issue' or 'Analysis.' Cite relevant laws or principles briefly when necessary, and focus on practical guidance. Avoid overly technical language unless required.
 
 Context: {context}
 
-Question: {query}
-
-Use professional language."""
+Question: {query}"""
         return PromptTemplate(input_variables=["context", "query"], template=template)
 
     def process_query(self, query: str):
