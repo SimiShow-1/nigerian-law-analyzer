@@ -1,35 +1,80 @@
 
-.chat-container {
-    height: 70vh;
-    overflow-y: auto;
-    padding-bottom: 80px;
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+
+body, .stApp {
+    background-color: #1E3A8A; /* Navy blue */
+    color: #FFFFFF; /* White text */
+    font-family: 'Roboto', sans-serif;
 }
-.input-container {
+
+h1 {
+    color: #D4A017; /* Gold */
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.stChatMessage {
+    background-color: #FFFFFF; /* White chat background */
+    color: #1E3A8A; /* Navy blue text */
+    border-radius: 10px;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #4B5563; /* Gray border */
+}
+
+.stChatMessage.user {
+    background-color: #D4A017; /* Gold for user messages */
+    color: #1E3A8A;
+}
+
+.stChatInput {
     position: fixed;
     bottom: 0;
     width: 100%;
-    background: white;
+    background-color: #FFFFFF;
     padding: 10px;
-    box-shadow: 0 -2px 5px rgba(0,0,0,0.1);
-    display: flex;
-    align-items: center;
-    z-index: 100;
+    border-top: 1px solid #4B5563;
 }
+
 .stTextInput > div > div > input {
-    border-radius: 20px;
-    padding: 12px 20px;
+    background-color: #FFFFFF;
+    color: #1E3A8A;
+    border: 1px solid #4B5563;
+    border-radius: 5px;
+    padding: 8px;
 }
-.stButton button {
-    border-radius: 20px;
-    padding: 8px 20px;
-    background-color: #2e7d32;
-    color: white;
+
+.stTextInput > div > div > button {
+    background-color: #D4A017; /* Gold button */
+    color: #1E3A8A;
+    border: none;
+    border-radius: 5px;
+    padding: 8px 12px;
+    cursor: pointer;
 }
-.clear-btn {
-    background-color: #d32f2f !important;
+
+.stTextInput > div > div > button:hover {
+    background-color: #B8860B; /* Darker gold on hover */
 }
-.header {
-    display: flex;
-    align-items: center;
-    margin-bottom: 20px;
+
+.stTextInput > div > div > button::after {
+    content: '\u2708'; /* Paper plane icon */
+    font-size: 16px;
+}
+
+.stTextInput > div > div > button > span {
+    display: none; /* Hide "Send" text */
+}
+
+[data-testid="stChatMessageAvatar"] {
+    background-image: url('file:///C:/Users/pc/Desktop/Nigerian%20Law%20Bot/lexa_logo.png');
+    background-size: cover;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+[data-testid="stChatMessageAvatar"].user {
+    background-image: none;
+    background-color: #D4A017; /* Gold for user avatar */
 }

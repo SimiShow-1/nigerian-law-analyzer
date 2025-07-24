@@ -37,7 +37,7 @@ class LexaCore:
             openai_api_base="https://openrouter.ai/api/v1",
             openai_api_key=self.api_key,
             temperature=0.3,
-            max_tokens=2000
+            max_tokens=500  # Limit for concise responses
         )
         self.logger.info("Creating prompt template")
         self.prompt_template = self._get_prompt_template()
@@ -93,13 +93,14 @@ class LexaCore:
                     self.logger.warning(f"Invalid dataset format: {dataset}")
                     continue
                 for item in data:
-                    content = item.get("content", "")
+                    content = item.get("content", "") or item.get("definition", "")
                     if not content:
                         continue
-                    title = item.get("title", "Untitled")
+                    title = item.get("title", item.get("term", "Untitled"))
+                    topic = item.get("topic", item.get("term", os.path.basename(dataset).split('_')[0]))
                     documents.append(Document(
                         page_content=f"{title}\n\n{content}",
-                        metadata={'source': dataset, 'title': title}
+                        metadata={'source': dataset, 'title': title, 'topic': topic}
                     ))
                 self.logger.info(f"Loaded {len(documents)} documents from {dataset}")
             except Exception as e:
@@ -110,11 +111,7 @@ class LexaCore:
         return documents
 
     def _get_prompt_template(self):
-        template = """You are Lexa, a Nigerian legal assistant.
-          Answer the question accurately based solely on the provided context about Nigerian law, without inventing laws or citing non-existent statutes (e.g., do not mention a 'Nigerian Contract Act'). 
-          Respond in a clear, concise, and conversational tone, as if advising a client directly.
-            Do not use section headers like 'Legal Issue' or 'Analysis.' Provide practical guidance, citing relevant laws or principles from the context briefly when necessary.
-            If the context lacks specific details, admit uncertainty and offer general advice based on Nigerian legal principles.
+        template = """You are Lexa, a Nigerian legal assistant. Answer the question in a professional, authoritative tone, like a Nigerian lawyer advising a client. Use only the provided context about Nigerian law, focusing on the relevant topic (e.g., contract law for contract questions, land law for land questions). Cite specific cases or statutes from the context when applicable, but do not invent laws or cases (e.g., no 'Nigerian Contract Act'). Keep the response concise (150 words or less) and directly address the question without mentioning unrelated topics. If the context lacks specific details or Nigerian cases, admit limitations and provide general advice based on Nigerian legal principles. Do not use section headers like 'Legal Issue' or 'Analysis.'
 
 Context: {context}
 
@@ -130,7 +127,10 @@ Question: {query}"""
         if query in self.query_cache:
             return self.query_cache[query]
         self.logger.info(f"Processing query: {query[:50]}...")
-        docs = self.vectorstore.similarity_search(query, k=self.similarity_k)
+        # Classify query topic
+        query_lower = query.lower()
+        topic = "contract_law" if any(k in query_lower for k in ["contract", "agreement", "offer", "acceptance"]) else "land_law" if any(k in query_lower for k in ["land", "property", "occupancy"]) else "contract_law"
+        docs = self.vectorstore.similarity_search(query, k=self.similarity_k, filter={"topic": topic})
         context = "\n\n---\n\n".join([doc.page_content for doc in docs])
         prompt = self.prompt_template.format(context=context, query=query)
         response = self.llm.invoke(prompt)
