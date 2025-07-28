@@ -37,7 +37,7 @@ class LexaCore:
             openai_api_base="https://openrouter.ai/api/v1",
             openai_api_key=self.api_key,
             temperature=0.3,
-            max_tokens=500  # Limit for concise responses
+            max_tokens=500
         )
         self.logger.info("Creating prompt template")
         self.prompt_template = self._get_prompt_template()
@@ -111,12 +111,8 @@ class LexaCore:
         return documents
 
     def _get_prompt_template(self):
-        template = """You are Lexa, a Nigerian legal assistant. Answer the question in a professional, authoritative tone, like a Nigerian lawyer advising a client. Use only the provided context about Nigerian law, focusing on the relevant topic (e.g., contract law for contract questions, land law for land questions). Cite specific cases or statutes from the context when applicable, but do not invent laws or cases (e.g., no 'Nigerian Contract Act'). Keep the response concise (150 words or less) and directly address the question without mentioning unrelated topics. If the context lacks specific details or Nigerian cases, admit limitations and provide general advice based on Nigerian legal principles. Do not use section headers like 'Legal Issue' or 'Analysis.'
-
-Context: {context}
-
-Question: {query}"""
-        return PromptTemplate(input_variables=["context", "query"], template=template)
+        template = """You are Lexa, a Nigerian legal assistant. Answer the question based on the provided context."""
+        return PromptTemplate(input_variables=["context"], template=template)
 
     def process_query(self, query: str):
         query = query.strip()
@@ -127,12 +123,9 @@ Question: {query}"""
         if query in self.query_cache:
             return self.query_cache[query]
         self.logger.info(f"Processing query: {query[:50]}...")
-        # Classify query topic
-        query_lower = query.lower()
-        topic = "contract_law" if any(k in query_lower for k in ["contract", "agreement", "offer", "acceptance"]) else "land_law" if any(k in query_lower for k in ["land", "property", "occupancy"]) else "contract_law"
-        docs = self.vectorstore.similarity_search(query, k=self.similarity_k, filter={"topic": topic})
+        docs = self.vectorstore.similarity_search(query, k=self.similarity_k)
         context = "\n\n---\n\n".join([doc.page_content for doc in docs])
-        prompt = self.prompt_template.format(context=context, query=query)
+        prompt = self.prompt_template.format(context=context)
         response = self.llm.invoke(prompt)
         response_text = response.content.strip()
         self.query_cache[query] = response_text

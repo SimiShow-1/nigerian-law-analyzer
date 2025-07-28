@@ -1,85 +1,46 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-
+/* Basic styling you might have had */
 body, .stApp {
-    background-color: #1E3A8A; /* Navy blue */
-    color: #FFFFFF; /* White text */
-    font-family: 'Roboto', sans-serif;
+    background-color: #f0f0f0; /* Default light background */
+    color: #000000; /* Default text color */
 }
 
 h1 {
-    color: #D4A017; /* Gold */
     text-align: center;
     margin-bottom: 20px;
 }
 
 .stChatMessage {
-    background-color: #FFFFFF; /* White chat background */
-    color: #1E3A8A; /* Navy blue text */
-    border-radius: 10px;
+    background-color: #e0e0e0; /* Default chat background */
+    color: #000000;
     padding: 10px;
     margin: 5px 0;
-    border: 1px solid #4B5563; /* Gray border */
-    max-width: 80%; /* Limit message width */
+    border-radius: 5px;
 }
 
 .stChatMessage.user {
-    background-color: #D4A017; /* Gold for user messages */
-    color: #1E3A8A;
+    background-color: #d0d0d0; /* Default user message */
 }
 
 .stChatInput {
-    position: fixed;
-    bottom: 0;
-    width: 70%; /* Reduced from 100% */
-    background-color: #FFFFFF;
+    width: 100%;
     padding: 10px;
-    border-top: 1px solid #4B5563;
-    left: 50%;
-    transform: translateX(-50%); /* Center it */
 }
 
 .stTextInput > div > div > input {
-    background-color: #FFFFFF;
-    color: #1E3A8A;
-    border: 1px solid #4B5563;
-    border-radius: 5px;
     padding: 8px;
-    width: 90%; /* Adjust input field width */
+    border-radius: 5px;
 }
 
 .stTextInput > div > div > button {
-    background-color: #D4A017; /* Gold button */
-    color: #1E3A8A;
+    background-color: #4CAF50; /* Default green button */
+    color: white;
     border: none;
-    border-radius: 5px;
     padding: 8px 12px;
+    border-radius: 5px;
     cursor: pointer;
-    margin-left: 10px; /* Space from input */
 }
 
 .stTextInput > div > div > button:hover {
-    background-color: #B8860B; /* Darker gold on hover */
-}
-
-.stTextInput > div > div > button::after {
-    content: '\u2708'; /* Paper plane icon */
-    font-size: 16px;
-}
-
-.stTextInput > div > div > button > span {
-    display: none; /* Hide "Send" text */
-}
-
-[data-testid="stChatMessageAvatar"] {
-    background-image: url('lexa_logo.png');
-    background-size: cover;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-}
-
-[data-testid="stChatMessageAvatar"].user {
-    background-image: none;
-    background-color: #D4A017; /* Gold for user avatar */
+    background-color: #45a049;
 }

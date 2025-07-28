@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Lexa - Nigerian Legal Assistant", layout="wide")
 
-# Load custom CSS
+# Load custom CSS (if you had one)
 css_path = "style.css"
 if os.path.exists(css_path):
     with open(css_path, "r") as f:
@@ -28,8 +28,8 @@ if "lexa" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}]
 
-# Header
-st.markdown("<h1>Lexa: Nigerian Legal Assistant</h1>", unsafe_allow_html=True)
+# Header with logo (assuming you had a logo at the top)
+st.image("lexa_logo.png", width=100)  # Assuming this was your original logo placement
 
 # Clear chat button
 if st.button("Clear Chat"):
@@ -40,9 +40,9 @@ for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
         message(msg["content"], is_user=True, key=f"user_{i}")
     else:
-        message(msg["content"], avatar_style="lexa-logo", key=f"assistant_{i}")
+        message(msg["content"], avatar_style="initials", key=f"assistant_{i}")  # Default avatar
 
-# Chat input at bottom
+# Chat input
 if prompt := st.chat_input("Ask a legal question"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     try:
