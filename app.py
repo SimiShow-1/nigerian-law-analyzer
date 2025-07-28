@@ -1,3 +1,4 @@
+
 import streamlit as st
 from streamlit_chat import message
 from lexa_core import LexaCore
@@ -29,6 +30,10 @@ if "messages" not in st.session_state:
 
 # Header
 st.markdown("<h1>Lexa: Nigerian Legal Assistant</h1>", unsafe_allow_html=True)
+
+# Clear chat button
+if st.button("Clear Chat"):
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}]
 
 # Display chat messages
 for i, msg in enumerate(st.session_state.messages):
