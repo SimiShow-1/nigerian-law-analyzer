@@ -1,70 +1,63 @@
-
 import streamlit as st
 from streamlit_chat import message
-from lexa_core import LexaCore
-import logging
-import os
+import time
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
-logger = logging.getLogger(__name__)
+st.set_page_config(page_title="Lexa", page_icon="🤖")
+st.markdown("""
+    <style>
+    .stChatMessage {
+        padding: 0.8rem;
+    }
+    .stChatMessage img {
+        height: 60px !important; /* bigger avatar */
+        width: 60px !important;
+        border-radius: 50%;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-st.set_page_config(page_title="Lexa - Nigerian Legal Assistant", layout="wide")
+# Set up session state
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# Load CSS
-css_path = "style.css"
-if os.path.exists(css_path):
-    with open(css_path, "r") as f:
-        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
-else:
-    logger.warning("style.css not found")
+# Title and logo
+col1, col2 = st.columns([1, 8])
+with col1:
+    st.image("lexa_logo.png", width=60)
+with col2:
+    st.title("Lexa")
 
-# Logo
-st.image("lexa_logo.png", width=150)
-
-# Init session state
-if "lexa" not in st.session_state:
-    try:
-        st.session_state.lexa = LexaCore()
-    except Exception as e:
-        st.error(f"Failed to initialize Lexa: {e}")
-        st.stop()
-
-if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {
-            "role": "assistant",
-            "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"
-        }
-    ]
-
-# Clear chat
-if st.button("Clear Chat"):
-    st.session_state.messages = [
-        {
-            "role": "assistant",
-            "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"
-        }
-    ]
-
-# Display chat
-for i, msg in enumerate(st.session_state.messages):
+# Display chat history
+for idx, msg in enumerate(st.session_state.chat_history):
     is_user = msg["role"] == "user"
     message(
         msg["content"],
         is_user=is_user,
-        key=f"{msg['role']}_{i}",
-        avatar_style="url" if not is_user else None,
-        avatar_url="lexa_logo.png" if not is_user else None
+        key=f"chat_{idx}",
+        avatar_style="thumbs" if is_user else None,
+        avatar_url=None if is_user else "lexa_logo.png"
     )
 
-# Chat input
-if prompt := st.chat_input("Ask a legal question"):
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.spinner("Lexa is thinking..."):
-        try:
-            response = st.session_state.lexa.process_query(prompt)
-        except Exception as e:
-            response = "Sorry, I encountered an error. Please try again."
-            st.error(f"Error: {e}")
-        st.session_state.messages.append({"role": "assistant", "content": response})
-    st.rerun()  # Force immediate refresh
+# Input field
+prompt = st.chat_input("Say something to Lexa...")
+
+if prompt:
+    # Add user message
+    st.session_state.chat_history.append({"role": "user", "content": prompt})
+
+    # Rerun to immediately display user message
+    st.experimental_rerun()
+
+# Only respond after rerun
+if st.session_state.chat_history:
+    last_msg = st.session_state.chat_history[-1]
+    if last_msg["role"] == "user":
+        # Simulate Lexa's reply
+        with st.spinner("Lexa is thinking..."):
+            time.sleep(1)  # fake delay
+
+        reply = f"Lexa heard: '{last_msg['content']}'"
+        st.session_state.chat_history.append({"role": "assistant", "content": reply})
+
+        # Rerun to display assistant message
+        st.experimental_rerun()
