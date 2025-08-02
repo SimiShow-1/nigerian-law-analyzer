@@ -7,7 +7,6 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.docstore.document import Document
-from langchain.schema import HumanMessage
 import streamlit as st
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -66,7 +65,7 @@ class LexaCore:
                     title = it.get("title", it.get("term", "Untitled"))
                     docs.append(Document(page_content=f"{title}\n\n{content}", metadata={"source": path}))
             except Exception as e:
-                logger.warning(f"Load failed {path}: {e}")
+                logger.warning(f"Failed to load {path}: {e}")
         if not docs:
             raise LexaError("No documents loaded")
         return docs
@@ -103,8 +102,9 @@ Question:
         prompt = self.prompt_template.format(context=context, question=query)
 
         try:
-            result = self.llm([HumanMessage(content=prompt)])
-            text = result.generations[0][0].text.strip()
+            # Direct invocation of the prompt
+            response = self.llm.invoke(prompt)
+            text = response.content.strip()
             self.query_cache[query] = text
             return text
         except Exception as e:
