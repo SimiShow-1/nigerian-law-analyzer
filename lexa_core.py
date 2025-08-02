@@ -43,14 +43,17 @@ class LexaCore:
 
     def _create_default_dataset(self, path: str):
         base = os.path.basename(path).split("_")[0].capitalize()
-        data = [{"title": f"Default {base} Law", "content": f"This is a default {base} law document."}]
+        data = [{
+            "title": f"Default {base} Law",
+            "content": f"This is a default {base} law document."
+        }]
         with open(path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
 
     def _get_api_key(self):
         key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
         if not key:
-            raise LexaError("API key not found")
+            raise LexaError("API key not found. Please set it in .streamlit/secrets.toml")
         return key
 
     def _load_documents(self):
@@ -76,8 +79,8 @@ class LexaCore:
 
     def _get_prompt_template(self):
         template = """
-You are Lexa, a Nigerian legal assistant trained on Contract Law and Land Law datasets. 
-Use ONLY the provided context to define, explain, and apply relevant legal concepts. 
+You are Lexa, a Nigerian legal assistant trained on Contract Law and Land Law datasets.
+Use ONLY the provided context to define, explain, and apply relevant legal concepts.
 When necessary, cite applicable Nigerian Acts, sections, and legal principles.
 
 Context:
@@ -92,24 +95,25 @@ Question:
         query = query.strip()
         if not query:
             return "Please ask a legal question."
+
         if re.match(r"^(hi|hello|hey|good\s+(morning|afternoon|evening))\b", query.lower()):
             return "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"
+
         if query in self.query_cache:
             return self.query_cache[query]
 
-        docs = self.vectorstore.similarity_search(query, k=self.similarity_k)
-        context = "\n\n---\n\n".join(d.page_content for d in docs)
-        prompt = self.prompt_template.format(context=context, question=query)
-
         try:
-            # Direct invocation of the prompt
+            docs = self.vectorstore.similarity_search(query, k=self.similarity_k)
+            context = "\n\n---\n\n".join(d.page_content for d in docs)
+            prompt = self.prompt_template.format(context=context, question=query)
+
             response = self.llm.invoke(prompt)
             text = response.content.strip()
             self.query_cache[query] = text
             return text
         except Exception as e:
             logger.error(f"LLM call failed: {e}")
-            return f"Error: {e}"
+            return "Sorry, I encountered an error. Please try again."
 
     def reset(self):
         self.query_cache.clear()
