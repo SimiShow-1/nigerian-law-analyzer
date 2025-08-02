@@ -60,4 +60,5 @@ if st.session_state.chat_history:
         st.session_state.chat_history.append({"role": "assistant", "content": reply})
 
         # Rerun to display assistant message
-        st.experimental_rerun()
+        st.rerun()
+
