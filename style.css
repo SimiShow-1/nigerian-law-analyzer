@@ -1,43 +1,44 @@
 body, .stApp {
-    background-color: #121212;
-    color: #ffffff;
+    background-color: #f0f0f0;
+    color: #000000;
 }
 
 h1 {
     text-align: center;
     margin-bottom: 20px;
-    color: #ffffff;
 }
 
 .stChatMessage {
-    background-color: #1f1f1f !important;
-    color: #ffffff !important;
+    background-color: #e0e0e0;
+    color: #000000;
     padding: 10px;
     margin: 5px 0;
-    border-radius: 8px;
+    border-radius: 5px;
 }
 
 .stChatMessage.user {
-    background-color: #2c2c2c !important;
+    background-color: #d0d0d0;
 }
 
-.stChatInput input {
-    background-color: #181818 !important;
-    color: #fff !important;
-    border: 1px solid #333 !important;
-    border-radius: 8px !important;
+.stChatInput {
+    width: 100%;
+    padding: 10px;
 }
 
-.stChatInput input::placeholder {
-    color: #aaa !important;
+.stTextInput > div > div > input {
+    padding: 8px;
+    border-radius: 5px;
 }
 
-.stButton>button {
+.stTextInput > div > div > button {
     background-color: #4CAF50;
     color: white;
-    border-radius: 6px;
+    border: none;
+    padding: 8px 12px;
+    border-radius: 5px;
+    cursor: pointer;
 }
 
-.stButton>button:hover {
+.stTextInput > div > div > button:hover {
     background-color: #45a049;
 }

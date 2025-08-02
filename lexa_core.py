@@ -11,7 +11,6 @@ import streamlit as st
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
-
 os.environ['FAISS_NO_GPU'] = '1'
 
 class LexaError(Exception):
@@ -25,7 +24,7 @@ class LexaCore:
         self.llm_model = "mistralai/mixtral-8x7b-instruct"
         self.api_key = self._get_api_key()
         self.similarity_k = 3
-        
+
         self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
         self.vectorstore = self._load_vectorstore()
         self.llm = ChatOpenAI(
@@ -74,7 +73,7 @@ class LexaCore:
                 with open(dataset, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                 for item in data:
-                    content = item.get("content", "") or item.get("definition", "")
+                    content = item.get("content") or item.get("definition")
                     if not content:
                         continue
                     title = item.get("title", item.get("term", "Untitled"))
@@ -84,18 +83,18 @@ class LexaCore:
                         metadata={'source': dataset, 'title': title, 'topic': topic}
                     ))
             except Exception as e:
-                continue
+                self.logger.warning(f"Failed to load {dataset}: {e}")
         return documents
 
     def _get_prompt_template(self):
         template = """
-You are Lexa, a Nigerian legal assistant. Use only the provided legal context to answer the user's question. 
-If the context is not enough, say so clearly and suggest the user rephrase or ask another question.
+You are Lexa, a Nigerian legal assistant. Use only the context below to answer the user's question. 
+If the context is not enough, politely say so and suggest rephrasing or asking a different question.
 
 Context:
 {context}
 
-Question:
+User's Question:
 {question}
 """
         return PromptTemplate(input_variables=["context", "question"], template=template)

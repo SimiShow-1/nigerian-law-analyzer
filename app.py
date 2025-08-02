@@ -9,17 +9,13 @@ logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Lexa - Nigerian Legal Assistant", layout="wide")
 
-# Load CSS
-if os.path.exists("style.css"):
-    with open("style.css", "r") as f:
+css_path = "style.css"
+if os.path.exists(css_path):
+    with open(css_path, "r") as f:
         st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
 else:
-    logger.warning("No style.css found")
+    logger.warning("style.css not found, using default styles")
 
-# Logo at the top (larger)
-st.image("lexa_logo.png", width=120)
-
-# Session state
 if "lexa" not in st.session_state:
     try:
         st.session_state.lexa = LexaCore()
@@ -32,32 +28,25 @@ if "messages" not in st.session_state:
         {"role": "assistant", "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}
     ]
 
-# Clear chat button
-st.button("🧹 Clear Chat", on_click=lambda: st.session_state.update({
-    "messages": [
+st.image("lexa_logo.png", width=100)
+
+if st.button("Clear Chat"):
+    st.session_state.messages = [
         {"role": "assistant", "content": "Hello! I'm Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}
     ]
-}))
 
-# Display all messages
 for i, msg in enumerate(st.session_state.messages):
     if msg["role"] == "user":
         message(msg["content"], is_user=True, key=f"user_{i}")
     else:
-        # Display Lexa's logo manually
-        cols = st.columns([0.1, 0.9])
-        with cols[0]:
-            st.image("lexa_logo.png", width=40)
-        with cols[1]:
-            message(msg["content"], key=f"assistant_{i}")
+        # Use Lexa's logo instead of avatar_style
+        message(msg["content"], key=f"assistant_{i}", avatar_url="lexa_logo.png")
 
-# Chat input
 if prompt := st.chat_input("Ask a legal question"):
     st.session_state.messages.append({"role": "user", "content": prompt})
     try:
         response = st.session_state.lexa.process_query(prompt)
+        st.session_state.messages.append({"role": "assistant", "content": response})
     except Exception as e:
-        response = "Sorry, something went wrong. Please try again later."
-        logger.error(e)
-
-    st.session_state.messages.append({"role": "assistant", "content": response})
+        st.error("Error processing query.")
+        st.session_state.messages.append({"role": "assistant", "content": "Sorry, I encountered an error. Please try again."})
