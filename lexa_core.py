@@ -1,3 +1,4 @@
+# lexa_core.py
 import json
 import os
 import logging
@@ -11,6 +12,7 @@ import streamlit as st
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
+
 os.environ['FAISS_NO_GPU'] = '1'
 
 class LexaError(Exception):
@@ -25,8 +27,13 @@ class LexaCore:
         self.api_key = self._get_api_key()
         self.similarity_k = 3
 
+        self.logger.info("Initializing embeddings")
         self.embeddings = HuggingFaceEmbeddings(model_name=self.embedding_model)
+
+        self.logger.info("Creating vectorstore")
         self.vectorstore = self._load_vectorstore()
+
+        self.logger.info("Initializing LLM")
         self.llm = ChatOpenAI(
             model=self.llm_model,
             openai_api_base="https://openrouter.ai/api/v1",
@@ -34,13 +41,16 @@ class LexaCore:
             temperature=0.3,
             max_tokens=500
         )
+        self.logger.info("Creating prompt template")
         self.prompt_template = self._get_prompt_template()
         self.query_cache = {}
+        self.logger.info("LexaCore initialized")
 
     def _validate_environment(self):
         required_files = ["contract_law_dataset.json", "land_law_dataset.json"]
         for file in required_files:
             if not os.path.exists(file):
+                self.logger.info(f"Creating default dataset: {file}")
                 self._create_default_dataset(file)
             if os.path.getsize(file) == 0:
                 raise LexaError(f"Data file is empty: {file}")
@@ -56,7 +66,9 @@ class LexaCore:
     def _get_api_key(self):
         api_key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
         if not api_key:
+            self.logger.error("API key not found in st.secrets or environment variable")
             raise LexaError("API key not found")
+        self.logger.info("API key loaded successfully")
         return api_key
 
     def _load_vectorstore(self):
@@ -87,14 +99,15 @@ class LexaCore:
         return documents
 
     def _get_prompt_template(self):
+        # Include both context and question
         template = """
-You are Lexa, a Nigerian legal assistant. Use only the context below to answer the user's question. 
-If the context is not enough, politely say so and suggest rephrasing or asking a different question.
+You are Lexa, a Nigerian legal assistant. Answer the user's question strictly based on the provided context.
+If the context is insufficient, say you don't have enough info.
 
 Context:
 {context}
 
-User's Question:
+Question:
 {question}
 """
         return PromptTemplate(input_variables=["context", "question"], template=template)
@@ -108,6 +121,7 @@ User's Question:
         if query in self.query_cache:
             return self.query_cache[query]
 
+        self.logger.info(f"Processing query: {query[:50]}...")
         docs = self.vectorstore.similarity_search(query, k=self.similarity_k)
         context = "\n\n---\n\n".join([doc.page_content for doc in docs])
         prompt = self.prompt_template.format(context=context, question=query)
@@ -121,3 +135,4 @@ User's Question:
 
     def reset(self):
         self.query_cache.clear()
+        self.logger.info("LexaCore reset")
