@@ -1,106 +1,122 @@
-import streamlit as st
-from openai import OpenAI
+# app.py
 import os
+import streamlit as st
+from lexa_core import LexaCore
+from dotenv import load_dotenv
 
-# Load API key
-client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
+load_dotenv()
 
-# Set Streamlit page config
-st.set_page_config(page_title="Lexa", page_icon="🤖")
+# --- Page configuration ---
+st.set_page_config(page_title="Lexa – Nigerian Legal Assistant", layout="wide")
 
-# Custom CSS for chat bubbles and avatars
+# --- Styles for custom chat bubbles and layout ---
 st.markdown("""
     <style>
-        .chat-message {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 1rem;
-        }
-        .chat-message.user {
-            justify-content: flex-end;
-        }
-        .chat-message.assistant {
-            justify-content: flex-start;
-        }
-        .chat-bubble {
-            padding: 0.8rem 1rem;
-            border-radius: 12px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .chat-bubble.user {
-            background-color: #DCF8C6;
-            color: #000;
-            border-bottom-right-radius: 0;
-        }
-        .chat-bubble.assistant {
-            background-color: #F1F0F0;
-            color: #000;
-            border-bottom-left-radius: 0;
-        }
-        .chat-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        .chat-container {
-            padding: 10px 5px;
-        }
+    .header-logo {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+    .header-logo img {
+        width: 150px;  /* slightly larger main logo */
+        border-radius: 8px;
+    }
+    .chat-container {
+        max-width: 700px;
+        margin: auto;
+        padding: 10px;
+        background: #fafafa;
+        border-radius: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .chat-message {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 12px;
+    }
+    .chat-message.user {
+        justify-content: flex-end;
+    }
+    .chat-bubble {
+        max-width: 80%;
+        padding: 10px 14px;
+        border-radius: 14px;
+        line-height: 1.4;
+    }
+    .chat-bubble.user {
+        background: #dcf8c6;
+        color: #000;
+        border-bottom-right-radius: 4px;
+    }
+    .chat-bubble.assistant {
+        background: #ffffff;
+        color: #000;
+        border: 1px solid #e0e0e0;
+        border-bottom-left-radius: 4px;
+    }
+    .chat-avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .chat-message.user .chat-avatar {
+        display: none;  /* no avatar for user */
+    }
     </style>
 """, unsafe_allow_html=True)
 
-# Title and branding
-st.markdown("<h2 style='text-align: center;'>Lexa 🤖</h2>", unsafe_allow_html=True)
+# --- Load logo and initialize backend ---
+logo_path = "lexa_logo.png"
+st.markdown(f'<div class="header-logo"><img src="{logo_path}" alt="Lexa Logo"></div>', unsafe_allow_html=True)
+if "lexa" not in st.session_state:
+    try:
+        st.session_state.lexa = LexaCore()
+    except Exception as e:
+        st.error(f"Initialization error: {e}")
+        st.stop()
 
-# Session state for messages
+# --- Chat history storage ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "Hey! I’m Lexa, how can I help you today?"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! I’m Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}]
 
-# Function to render messages
-def render_message(message):
-    role = message["role"]
-    content = message["content"]
-    if role == "user":
-        html = f"""
-        <div class="chat-container">
-            <div class="chat-message user">
-                <div class="chat-bubble user">{content}</div>
-            </div>
-        </div>
-        """
-    else:
-        html = f"""
-        <div class="chat-container">
-            <div class="chat-message assistant">
-                <img src="lexa_logo.png" class="chat-avatar" />
-                <div class="chat-bubble assistant">{content}</div>
-            </div>
-        </div>
-        """
-    st.markdown(html, unsafe_allow_html=True)
+# --- Clear chat button ---
+if st.button("Clear Chat"):
+    st.session_state.messages = [{"role": "assistant", "content": "Hello! I’m Lexa, your Nigerian legal assistant. Ask me about Contract Law or Land Law!"}]
 
-# Display all chat messages
+# --- Function to render each message ---
+def render_message(msg):
+    role = msg["role"]
+    content = msg["content"]
+    cls = "assistant" if role == "assistant" else "user"
+    avatar_html = f'<img src="{logo_path}" class="chat-avatar"/>' if role == "assistant" else ""
+    bubble_class = f'chat-bubble {cls}'
+    msg_html = f'''
+    <div class="chat-message {cls}">
+        {avatar_html}
+        <div class="{bubble_class}">{content}</div>
+    </div>
+    '''
+    st.markdown(msg_html, unsafe_allow_html=True)
+
+# --- Display chat messages ---
+st.markdown('<div class="chat-container">', unsafe_allow_html=True)
 for msg in st.session_state.messages:
     render_message(msg)
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Input box
-if prompt := st.chat_input("Ask Lexa anything..."):
+# --- Input prompt ---
+if prompt := st.chat_input("Ask Lexa a legal question..."):
+    # Append and render user message
     st.session_state.messages.append({"role": "user", "content": prompt})
+    render_message({"role": "user", "content": prompt})
+
+    # Generate and render assistant reply
     with st.spinner("Lexa is thinking..."):
         try:
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=[
-                    {"role": m["role"], "content": m["content"]}
-                    for m in st.session_state.messages
-                ]
-            )
-            reply = response.choices[0].message.content
-            st.session_state.messages.append({"role": "assistant", "content": reply})
-            render_message({"role": "user", "content": prompt})
-            render_message({"role": "assistant", "content": reply})
+            reply = st.session_state.lexa.process_query(prompt)
         except Exception as e:
-            st.error(f"Something went wrong: {e}")
+            reply = "Sorry, I encountered an error. Please try again."
+            st.error(f"Error: {e}")
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+    render_message({"role": "assistant", "content": reply})
