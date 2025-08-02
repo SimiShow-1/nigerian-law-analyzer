@@ -7,7 +7,12 @@ from langchain_community.vectorstores import FAISS
 from langchain_openai import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.docstore.document import Document
-import streamlit as st
+
+# Try importing streamlit, but make it optional
+try:
+    import streamlit as st
+except ImportError:
+    st = None
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 logger = logging.getLogger(__name__)
@@ -51,9 +56,13 @@ class LexaCore:
             json.dump(data, f, indent=2)
 
     def _get_api_key(self):
-        key = st.secrets.get("OPENROUTER_API_KEY") or os.getenv("OPENROUTER_API_KEY")
+        key = None
+        if st and hasattr(st, "secrets"):
+            key = st.secrets.get("OPENROUTER_API_KEY")
         if not key:
-            raise LexaError("API key not found. Please set it in .streamlit/secrets.toml")
+            key = os.getenv("OPENROUTER_API_KEY")
+        if not key:
+            raise LexaError("API key not found. Please set OPENROUTER_API_KEY in .streamlit/secrets.toml or as an environment variable.")
         return key
 
     def _load_documents(self):
